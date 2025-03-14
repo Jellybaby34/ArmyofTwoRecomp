@@ -1,59 +1,21 @@
 [submodule "thirdparty/vcpkg"]
 	path = thirdparty/vcpkg
-	url = https://github.com/microsoft/vcpkg.git
-[submodule "thirdparty/unordered_dense"]
-	path = thirdparty/unordered_dense
-	url = https://github.com/martinus/unordered_dense.git
-[submodule "thirdparty/json"]
-	path = thirdparty/json
-	url = https://github.com/nlohmann/json
-[submodule "thirdparty/fmt"]
-	path = thirdparty/fmt
-	url = https://github.com/fmtlib/fmt.git
-[submodule "thirdparty/xxHash"]
-	path = thirdparty/xxHash
-	url = https://github.com/Cyan4973/xxHash
-[submodule "thirdparty/SDL"]
-	path = thirdparty/SDL
-	url = https://github.com/libsdl-org/SDL
-	branch = SDL2
-[submodule "thirdparty/SDL_mixer"]
-	path = thirdparty/SDL_mixer
-	url = https://github.com/libsdl-org/SDL_mixer
-	branch = SDL2
-[submodule "thirdparty/tiny-AES-c"]
-	path = thirdparty/tiny-AES-c
-	url = https://github.com/kokke/tiny-AES-c
+	url = https://github.com/microsoft/vcpkg
 [submodule "thirdparty/libmspack"]
 	path = thirdparty/libmspack
 	url = https://github.com/kyz/libmspack
-[submodule "thirdparty/tomlplusplus"]
-	path = thirdparty/tomlplusplus
-	url = https://github.com/marzer/tomlplusplus
-[submodule "thirdparty/imgui"]
-	path = thirdparty/imgui
-	url = https://github.com/ocornut/imgui
-[submodule "thirdparty/implot"]
-	path = thirdparty/implot
-	url = https://github.com/epezent/implot
-[submodule "thirdparty/msdf-atlas-gen"]
-	path = thirdparty/msdf-atlas-gen
-	url = https://github.com/Chlumsky/msdf-atlas-gen
-[submodule "thirdparty/Vulkan-Headers"]
-	path = thirdparty/Vulkan-Headers
-	url = https://github.com/KhronosGroup/Vulkan-Headers
-[submodule "thirdparty/VulkanMemoryAllocator"]
-	path = thirdparty/VulkanMemoryAllocator
-	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator
-[submodule "thirdparty/volk"]
-	path = thirdparty/volk
-	url = https://github.com/zeux/volk
-[submodule "thirdparty/zstd"]
-	path = thirdparty/zstd
-	url = https://github.com/facebook/zstd
-[submodule "thirdparty/concurrentqueue"]
-	path = thirdparty/concurrentqueue
-	url = https://github.com/cameron314/concurrentqueue/
-[submodule "thirdparty/XenosRecomp"]
-	path = thirdparty/XenosRecomp
-	url = https://github.com/hedge-dev/XenosRecomp/
+[submodule "thirdparty/tiny-AES-c"]
+	path = thirdparty/tiny-AES-c
+	url = https://github.com/kokke/tiny-AES-c
+[submodule "thirdparty/TinySHA1"]
+	path = thirdparty/TinySHA1
+	url = https://github.com/mohaps/TinySHA1
+[submodule "thirdparty/fmt"]
+	path = thirdparty/fmt
+	url = https://github.com/fmtlib/fmt
+[submodule "thirdparty/xxHash"]
+	path = thirdparty/xxHash
+	url = https://github.com/Cyan4973/xxHash
+[submodule "thirdparty/unordered_dense"]
+	path = thirdparty/unordered_dense
+	url = https://github.com/martinus/unordered_dense/
