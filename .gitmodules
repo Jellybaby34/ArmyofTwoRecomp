@@ -7,9 +7,6 @@
 [submodule "thirdparty/tiny-AES-c"]
 	path = thirdparty/tiny-AES-c
 	url = https://github.com/kokke/tiny-AES-c
-[submodule "thirdparty/TinySHA1"]
-	path = thirdparty/TinySHA1
-	url = https://github.com/mohaps/TinySHA1
 [submodule "thirdparty/fmt"]
 	path = thirdparty/fmt
 	url = https://github.com/fmtlib/fmt
