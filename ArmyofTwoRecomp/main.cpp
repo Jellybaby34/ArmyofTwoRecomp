@@ -241,6 +241,8 @@ int main(int argc, char* argv[])
     modulePath = (GAME_INSTALL_DIRECTORY "/game/default.xex");
     LOG_WARNING(modulePath.string());
 
+    const char* sdlVideoDriver = nullptr;
+
     if (!Video::CreateHostDevice(sdlVideoDriver))
     {
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, GameWindow::GetTitle(), "Video_BackendError", GameWindow::s_pWindow);

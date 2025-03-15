@@ -215,9 +215,9 @@ set(ARMYOFTWO_RECOMP_THIRDPARTY_INCLUDES
 #    "${UNLEASHED_RECOMP_THIRDPARTY_ROOT}/magic_enum/include"
 #    "${UNLEASHED_RECOMP_THIRDPARTY_ROOT}/stb"
     "${ARMYOFTWO_RECOMP_THIRDPARTY_ROOT}/unordered_dense/include"
-#    "${UNLEASHED_RECOMP_THIRDPARTY_ROOT}/volk"
-#    "${UNLEASHED_RECOMP_THIRDPARTY_ROOT}/Vulkan-Headers/include"
-#    "${UNLEASHED_RECOMP_THIRDPARTY_ROOT}/VulkanMemoryAllocator/include"
+    "${ARMYOFTWO_RECOMP_THIRDPARTY_ROOT}/volk"
+    "${ARMYOFTWO_RECOMP_THIRDPARTY_ROOT}/Vulkan-Headers/include"
+    "${ARMYOFTWO_RECOMP_THIRDPARTY_ROOT}/VulkanMemoryAllocator/include"
 #    "${UNLEASHED_RECOMP_TOOLS_ROOT}/bc_diff"
 #    "${UNLEASHED_RECOMP_TOOLS_ROOT}/XenosRecomp/thirdparty/smol-v/source"
 )

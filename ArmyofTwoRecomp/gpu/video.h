@@ -9,7 +9,7 @@
 #define D3DCLEAR_TARGET  0x1
 #define D3DCLEAR_ZBUFFER 0x10
 
-#define LOAD_ZSTD_TEXTURE(name) LoadTexture(decompressZstd(name, name##_uncompressed_size).get(), name##_uncompressed_size)
+//#define LOAD_ZSTD_TEXTURE(name) LoadTexture(decompressZstd(name, name##_uncompressed_size).get(), name##_uncompressed_size)
 
 using namespace plume;
 
@@ -19,16 +19,12 @@ struct Video
     static inline uint32_t s_viewportHeight;
 
     static bool CreateHostDevice(const char* sdlVideoDriver);
-    static void WaitOnSwapChain();
-    static void Present();
-    static void StartPipelinePrecompilation();
+//    static void WaitOnSwapChain();
+//    static void Present();
+ //   static void StartPipelinePrecompilation();
     static void WaitForGPU();
-    static void ComputeViewportDimensions();
+//    static void ComputeViewportDimensions();
 };
-
-
-
-/*
 
 struct GuestSamplerState
 {
@@ -411,7 +407,6 @@ enum GuestTextureAddress
 
 inline bool g_needsResize;
 
-extern std::unique_ptr<GuestTexture> LoadTexture(const uint8_t* data, size_t dataSize, RenderComponentMapping componentMapping = RenderComponentMapping());
+//extern std::unique_ptr<GuestTexture> LoadTexture(const uint8_t* data, size_t dataSize, RenderComponentMapping componentMapping = RenderComponentMapping());
 
-extern void VideoConfigValueChangedCallback(class IConfigDef* config);
-*/
+//extern void VideoConfigValueChangedCallback(class IConfigDef* config);

@@ -20,3 +20,12 @@
 	path = thirdparty/SDL
 	url = https://github.com/libsdl-org/SDL/
 	branch = SDL2
+[submodule "thirdparty/Vulkan-Headers"]
+	path = thirdparty/Vulkan-Headers
+	url = https://github.com/KhronosGroup/Vulkan-Headers/
+[submodule "thirdparty/VulkanMemoryAllocator"]
+	path = thirdparty/VulkanMemoryAllocator
+	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator/
+[submodule "thirdparty/volk"]
+	path = thirdparty/volk
+	url = https://github.com/zeux/volk/
