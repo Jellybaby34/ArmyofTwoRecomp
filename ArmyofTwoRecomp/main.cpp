@@ -194,7 +194,15 @@ void init()
 */
 int main(int argc, char* argv[])
 {
-    printf("Hello world \n");
+    // Init and get console working
+    os::process::CheckConsole();
+    os::logger::Init();
+    os::process::ShowConsole();
+
+    LOGF_WARNING("Test");
+
+    if (!os::registry::Init())
+        LOGN_WARNING("OS does not support registry.");
 
     int spin;
     do {
