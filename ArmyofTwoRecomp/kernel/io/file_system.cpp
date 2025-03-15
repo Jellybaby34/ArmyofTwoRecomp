@@ -1,5 +1,5 @@
 #include "file_system.h"
-//#include <cpu/guest_thread.h>
+#include <cpu/guest_thread.h>
 #include <kernel/xam.h>
 #include <kernel/xdm.h>
 #include <kernel/function.h>

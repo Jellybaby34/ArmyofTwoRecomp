@@ -1,12 +1,20 @@
 #include <stdafx.h>
 #include "main.h"
 
+#include <file.h>
+#include <cpu/guest_thread.h>
+#include <xex.h>
+#include <gpu/video.h>
+#include <ui/game_window.h>
+
 #include <kernel/function.h>
 #include <kernel/memory.h>
 #include <kernel/heap.h>
 #include <kernel/xam.h>
 #include <kernel/io/file_system.h>
 #include <kernel/xdbf.h>
+#include <hid/hid.h>
+#include <user/paths.h>
 
 #include <os/logger.h>
 #include <os/process.h>
@@ -18,21 +26,21 @@ Heap g_userHeap;
 
 /*
 #include <cpuid.h>
-#include <cpu/guest_thread.h>
-#include <gpu/video.h>
-#include <file.h>
-#include <xex.h>
+
+
+
+
 //#include <apu/audio.h>
-#include <hid/hid.h>
+
 #include <user/config.h>
-#include <user/paths.h>
+
 //#include <user/registry.h>
 //#include <install/installer.h>
 //#include <install/update_checker.h>
 #include <os/logger.h>
 #include <os/process.h>
 //#include <os/registry.h>
-#include <ui/game_window.h>
+
 //#include <ui/installer_wizard.h>
 //#include <mod/mod_loader.h>
 
@@ -67,15 +75,20 @@ void HostStartup()
 
     hid::Init();
 }
-
+*/
 // Name inspired from nt's entry point
 void KiSystemStartup()
 {
-    const auto gameContent = XamMakeContent(XCONTENTTYPE_RESERVED, "Game");
-    const auto updateContent = XamMakeContent(XCONTENTTYPE_RESERVED, "Update");
-    XamRegisterContent(gameContent, GAME_INSTALL_DIRECTORY "/game");
-    XamRegisterContent(updateContent, GAME_INSTALL_DIRECTORY "/update");
+    LOGF_WARNING("Making files");
 
+    const auto gameContent = XamMakeContent(XCONTENTTYPE_RESERVED, "Game");
+//    const auto updateContent = XamMakeContent(XCONTENTTYPE_RESERVED, "Update");
+
+    LOGF_WARNING("Registering files");
+    XamRegisterContent(gameContent, GAME_INSTALL_DIRECTORY "/game");
+//    XamRegisterContent(updateContent, GAME_INSTALL_DIRECTORY "/update");
+
+    LOGF_WARNING("Checking save path");
     const auto saveFilePath = GetSaveFilePath(true);
     bool saveFileExists = std::filesystem::exists(saveFilePath);
 
@@ -97,11 +110,12 @@ void KiSystemStartup()
         std::u8string savePathU8 = saveFilePath.parent_path().u8string();
         XamRegisterContent(XamMakeContent(XCONTENTTYPE_SAVEDATA, "SYS-DATA"), (const char*)(savePathU8.c_str()));
     }
-
+    LOGF_WARNING("Mounting files");
     // Mount game
     XamContentCreateEx(0, "game", &gameContent, OPEN_EXISTING, nullptr, nullptr, 0, 0, nullptr);
-    XamContentCreateEx(0, "update", &updateContent, OPEN_EXISTING, nullptr, nullptr, 0, 0, nullptr);
+//    XamContentCreateEx(0, "update", &updateContent, OPEN_EXISTING, nullptr, nullptr, 0, 0, nullptr);
 
+    LOGF_WARNING("Mounting files to D:");
     // OS mounts game data to D:
     XamContentCreateEx(0, "D", &gameContent, OPEN_EXISTING, nullptr, nullptr, 0, 0, nullptr);
 
@@ -115,9 +129,10 @@ void KiSystemStartup()
             XamRegisterContent(XamMakeContent(XCONTENTTYPE_DLC, (const char*)(fileNameU8.c_str())), (const char*)(filePathU8.c_str()));
         }
     }
-
+    LOGF_WARNING("AUDIO NEEDS TO BE INCLUDED!!!");
 //    XAudioInitializeSystem();
 }
+
 
 uint32_t LdrLoadModule(const std::filesystem::path& path)
 {
@@ -169,6 +184,7 @@ uint32_t LdrLoadModule(const std::filesystem::path& path)
     return entry;
 }
 
+/*
 __attribute__((constructor(101), target("no-avx,no-avx2"), noinline))
 void init()
 {
@@ -192,8 +208,23 @@ void init()
 #endif
 }
 */
+void HostStartup()
+{
+#ifdef _WIN32
+    CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+#endif
+
+    g_userHeap.Init();
+
+    hid::Init();
+}
+
 int main(int argc, char* argv[])
 {
+#ifdef _WIN32
+    timeBeginPeriod(1);
+#endif
+
     // Init and get console working
     os::process::CheckConsole();
     os::logger::Init();
@@ -204,6 +235,22 @@ int main(int argc, char* argv[])
     if (!os::registry::Init())
         LOGN_WARNING("OS does not support registry.");
 
+    HostStartup();
+
+    std::filesystem::path modulePath;
+    modulePath = (GAME_INSTALL_DIRECTORY "/game/default.xex");
+    LOG_WARNING(modulePath.string());
+
+    if (!Video::CreateHostDevice(sdlVideoDriver))
+    {
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, GameWindow::GetTitle(), "Video_BackendError", GameWindow::s_pWindow);
+        std::_Exit(1);
+    }
+
+    KiSystemStartup();
+
+    uint32_t entry = LdrLoadModule(modulePath);
+
     int spin;
     do {
         spin++;
@@ -212,17 +259,6 @@ int main(int argc, char* argv[])
     return 0;
 
 /*
-#ifdef _WIN32
-    timeBeginPeriod(1);
-#endif
-
-    os::process::CheckConsole();
-
-//    if (!os::registry::Init())
-//        LOGN_WARNING("OS does not support registry.");
-
-    os::logger::Init();
-
     bool forceInstaller = false;
     bool forceDLCInstaller = false;
     const char* sdlVideoDriver = nullptr;

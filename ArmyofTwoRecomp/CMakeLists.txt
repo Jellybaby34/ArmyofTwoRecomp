@@ -57,9 +57,9 @@ if (WIN32)
 else()
     add_compile_options(-ffp-model=strict)
 endif()
-
+ 
 add_compile_definitions(
-##    SDL_MAIN_HANDLED
+    SDL_MAIN_HANDLED
     _DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR # Microsoft wtf?
     _CRT_SECURE_NO_WARNINGS)
 
@@ -102,15 +102,15 @@ endif()
 set(ARMYOFTWO_RECOMP_CPU_CXX_SOURCES
     "cpu/guest_thread.cpp"
 )
-#[[
-set(UNLEASHED_RECOMP_GPU_CXX_SOURCES
+
+set(ARMYOFTWO_RECOMP_GPU_CXX_SOURCES
     "gpu/video.cpp"
-    "gpu/imgui/imgui_common.cpp"
-    "gpu/imgui/imgui_font_builder.cpp"
-    "gpu/imgui/imgui_snapshot.cpp"
+##    "gpu/imgui/imgui_common.cpp"
+##    "gpu/imgui/imgui_font_builder.cpp"
+##    "gpu/imgui/imgui_snapshot.cpp"
     "gpu/rhi/plume_vulkan.cpp"
 )
-
+#[[
 if (UNLEASHED_RECOMP_D3D12)
     list(APPEND UNLEASHED_RECOMP_GPU_CXX_SOURCES
         "gpu/rhi/plume_d3d12.cpp"
@@ -122,12 +122,14 @@ set(UNLEASHED_RECOMP_APU_CXX_SOURCES
     "apu/embedded_player.cpp"
     "apu/driver/sdl2_driver.cpp"
 )
+]]
 
-set(UNLEASHED_RECOMP_HID_CXX_SOURCES
+set(ARMYOFTWO_RECOMP_HID_CXX_SOURCES
     "hid/hid.cpp"
     "hid/driver/sdl_hid.cpp"
 )
 
+#[[
 set(UNLEASHED_RECOMP_PATCHES_CXX_SOURCES
     "patches/aspect_ratio_patches.cpp"
     "patches/audio_patches.cpp"
@@ -146,22 +148,23 @@ set(UNLEASHED_RECOMP_PATCHES_CXX_SOURCES
     "patches/resident_patches.cpp"
     "patches/video_patches.cpp"
 )
+]]
 
-set(UNLEASHED_RECOMP_UI_CXX_SOURCES
-    "ui/achievement_menu.cpp"
-    "ui/achievement_overlay.cpp"
-    "ui/black_bar.cpp"
-    "ui/button_guide.cpp"
-    "ui/fader.cpp"
+set(ARMYOFTWO_RECOMP_UI_CXX_SOURCES
+##    "ui/achievement_menu.cpp"
+##    "ui/achievement_overlay.cpp"
+##    "ui/black_bar.cpp"
+##    "ui/button_guide.cpp"
+##    "ui/fader.cpp"
     "ui/game_window.cpp"
-    "ui/imgui_utils.cpp"
-    "ui/installer_wizard.cpp"
-    "ui/message_window.cpp"
-    "ui/options_menu.cpp"
-    "ui/options_menu_thumbnails.cpp"
-    "ui/tv_static.cpp"
+##    "ui/imgui_utils.cpp"
+##    "ui/installer_wizard.cpp"
+##    "ui/message_window.cpp"
+##    "ui/options_menu.cpp"
+##    "ui/options_menu_thumbnails.cpp"
+##    "ui/tv_static.cpp"
 )
-
+#[[
 set(UNLEASHED_RECOMP_INSTALL_CXX_SOURCES
     "install/installer.cpp"
     "install/iso_file_system.cpp"
@@ -176,15 +179,15 @@ set(UNLEASHED_RECOMP_INSTALL_CXX_SOURCES
     "install/hashes/spagonia.cpp"
     "install/hashes/update.cpp"
 )
-
-set(UNLEASHED_RECOMP_USER_CXX_SOURCES
-    "user/achievement_data.cpp"
-    "user/achievement_manager.cpp"
-    "user/config.cpp"
-    "user/registry.cpp"
+]]
+set(ARMYOFTWO_RECOMP_USER_CXX_SOURCES
+##    "user/achievement_data.cpp"
+##    "user/achievement_manager.cpp"
+##    "user/config.cpp"
+##    "user/registry.cpp"
     "user/paths.cpp"
 )
-
+#[[
 set(UNLEASHED_RECOMP_MOD_CXX_SOURCES
     "mod/mod_loader.cpp"
 )
@@ -232,7 +235,7 @@ set(ARMYOFTWO_RECOMP_CXX_SOURCES
 ##    "exports.cpp"
     "main.cpp"
 ##    "misc_impl.cpp"
-##    "sdl_listener.cpp"
+    "sdl_listener.cpp"
     "stdafx.cpp"
     "version.cpp"
     
@@ -240,17 +243,17 @@ set(ARMYOFTWO_RECOMP_CXX_SOURCES
 ##    ${UNLEASHED_RECOMP_LOCALE_CXX_SOURCES}
     ${ARMYOFTWO_RECOMP_OS_CXX_SOURCES}
     ${ARMYOFTWO_RECOMP_CPU_CXX_SOURCES}
-##    ${UNLEASHED_RECOMP_GPU_CXX_SOURCES}
+    ${ARMYOFTWO_RECOMP_GPU_CXX_SOURCES}
 ##    ${UNLEASHED_RECOMP_APU_CXX_SOURCES}
-##    ${UNLEASHED_RECOMP_HID_CXX_SOURCES}
+    ${ARMYOFTWO_RECOMP_HID_CXX_SOURCES}
 ##    ${UNLEASHED_RECOMP_PATCHES_CXX_SOURCES}
-##    ${UNLEASHED_RECOMP_UI_CXX_SOURCES}
+    ${ARMYOFTWO_RECOMP_UI_CXX_SOURCES}
 ##    ${UNLEASHED_RECOMP_INSTALL_CXX_SOURCES}
-##    ${UNLEASHED_RECOMP_USER_CXX_SOURCES}
+    ${ARMYOFTWO_RECOMP_USER_CXX_SOURCES}
 ##    ${UNLEASHED_RECOMP_MOD_CXX_SOURCES}
 ##    ${ARMYOFTWO_RECOMP_THIRDPARTY_SOURCES}
 )
-
+ 
 include("version.cmake")
 
 set(VERSION_TXT "${PROJECT_SOURCE_DIR}/res/version.txt")
@@ -363,7 +366,7 @@ target_link_libraries(ArmyofTwoRecomp PRIVATE
 ##    nfd::nfd
     o1heap
     XenonUtils
-##    SDL2::SDL2-static
+    SDL2::SDL2-static
 ##    SDL2_mixer
 ##    tomlplusplus::tomlplusplus
     ArmyofTwoRecompLib

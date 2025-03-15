@@ -23,8 +23,7 @@ inline T RoundDown(const T& in_rValue, uint32_t in_round)
 
 inline size_t StringHash(const std::string_view& str)
 {
-    printf("DEAD \n");
-//    return XXH3_64bits(str.data(), str.size());
+    return XXH3_64bits(str.data(), str.size());
 }
 
 template<typename TValue>

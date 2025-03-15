@@ -1,14 +1,14 @@
 #include <stdafx.h>
 #include "xam.h"
 #include "xdm.h"
-//#include <hid/hid.h>
-//#include <ui/game_window.h>
-//#include <cpu/guest_thread.h>
+#include <hid/hid.h>
+#include <ui/game_window.h>
+#include <cpu/guest_thread.h>
 #include <ranges>
 #include <unordered_set>
 #include "xxHashMap.h"
-//#include <user/paths.h>
-//#include <SDL.h>
+#include <user/paths.h>
+#include <SDL.h>
 
 struct XamListener : KernelObject
 {
@@ -296,8 +296,6 @@ uint32_t XamContentCreateEx(uint32_t dwUserIndex, const char* szRootName, const 
     uint32_t dwContentFlags, be<uint32_t>* pdwDisposition, be<uint32_t>* pdwLicenseMask,
     uint32_t dwFileCacheSize, uint64_t uliContentSize, PXXOVERLAPPED pOverlapped)
 {
-    LOG_WARNING("!!! STUB !!!");
-/*
     const auto& registry = gContentRegistry[pContentData->dwContentType - 1];
     const auto exists = registry.contains(StringHash(pContentData->szFileName));
     const auto mode = dwContentFlags & 0xF;
@@ -361,7 +359,6 @@ uint32_t XamContentCreateEx(uint32_t dwUserIndex, const char* szRootName, const 
     }
 
     return ERROR_PATH_NOT_FOUND;
-*/
 }
 
 uint32_t XamContentClose(const char* szRootName, XXOVERLAPPED* pOverlapped)

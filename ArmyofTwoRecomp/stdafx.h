@@ -27,9 +27,10 @@ using Microsoft::WRL::ComPtr;
 #include <xxhash.h>
 #include <ankerl/unordered_dense.h>
 #include <xbox.h>
-
+#include <ppc/ppc_recomp_shared.h>
 #include <o1heap.h>
-
+#include <SDL.h>
+#include <set>
 #include <fmt/core.h>
 
 #include <os/logger.h>
@@ -51,7 +52,7 @@ using Microsoft::WRL::ComPtr;
 #include <zstd.h>
 //#include <stb_image.h>
 #include <blockingconcurrentqueue.h>
-#include <SDL.h>
+
 #include <SDL_mixer.h>
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -60,7 +61,7 @@ using Microsoft::WRL::ComPtr;
 
 #include <cstddef>
 //#include <smolv.h>
-#include <set>
+
 #include <fmt/core.h>
 #include <list>
 #include <semaphore>

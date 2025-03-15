@@ -9,6 +9,7 @@ if (NOT TARGET xxHash::xxhash)
 endif()
 
 add_subdirectory("${ARMYOFTWO_RECOMP_THIRDPARTY_ROOT}/o1heap")
+add_subdirectory("${ARMYOFTWO_RECOMP_THIRDPARTY_ROOT}/SDL")
 
 #[[
 set(MSDF_ATLAS_BUILD_STANDALONE OFF)
