@@ -1,6 +1,7 @@
 cmake_policy(SET CMP0077 NEW)
 
 add_subdirectory(${ARMYOFTWO_RECOMP_TOOLS_ROOT}/disasm)
+add_subdirectory(${ARMYOFTWO_RECOMP_TOOLS_ROOT}/bc_diff)
 
 add_subdirectory("${ARMYOFTWO_RECOMP_TOOLS_ROOT}/XenonUtils")
 

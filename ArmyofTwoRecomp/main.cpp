@@ -21,8 +21,12 @@
 #include <os/registry.h>
 #include <os/version.h>
 
+#include "locale/locale.h"
+
 Memory g_memory;
 Heap g_userHeap;
+XDBFWrapper g_xdbfWrapper;
+std::unordered_map<uint16_t, GuestTexture*> g_xdbfTextureCache;
 
 /*
 #include <cpuid.h>
@@ -250,13 +254,16 @@ int main(int argc, char* argv[])
     }
 
     KiSystemStartup();
-
+    LOGF_WARNING("Loading module");
     uint32_t entry = LdrLoadModule(modulePath);
+    LOGF_WARNING("Loaded module {}", entry);
+    Video::StartPipelinePrecompilation();
+    LOGF_WARNING("Pipeline");
+ //   SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, GameWindow::GetTitle(), Localise("Video_BackendError").c_str(), GameWindow::s_pWindow);
+ //   std::_Exit(1);
 
-    int spin;
-    do {
-        spin++;
-    } while (true);
+    GuestThread::Start({ entry, 0, 0 });
+    LOGF_WARNING("Thread started");
 
     return 0;
 

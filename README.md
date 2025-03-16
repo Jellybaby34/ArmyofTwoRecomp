@@ -11,6 +11,9 @@
  From a quick glance, Army of Two was released in 2008 and uses Unreal Engine 3. The source code of the engine can be found below (2004 version and 2013 version)  
  [Unreal Engine 3 - 2004](https://github.com/gameboys84/unrealengine3)  
  [Unreal Engine 3 - 2013](https://github.com/CodeRedModding/UnrealEngine3)
+
+ PowerPC passes arguments to functions normally using registers r3-r10 with the return value stored in r3
+ Source: The internet where no one lies [Stack Overflow](https://stackoverflow.com/a/17309038)
  
 ## Things that need investigating/doing
 ### XenonRecomp

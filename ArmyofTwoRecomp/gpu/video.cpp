@@ -5,7 +5,7 @@
 //#include "imgui/imgui_font_builder.h"
 
 //#include <app.h>
-//#include <bc_diff.h>
+#include <bc_diff.h>
 #include <cpu/guest_thread.h>
 //#include <decompressor.h>
 #include <kernel/function.h>
@@ -15,8 +15,8 @@
 #include <kernel/xdbf.h>
 //#include <res/bc_diff/button_bc_diff.bin.h>
 //#include <res/font/im_font_atlas.dds.h>
-//#include <shader/shader_cache.h>
-//#include <SWA.h>
+#include <shader/shader_cache.h>
+#include <SWA.h>
 //#include <ui/achievement_menu.h>
 //#include <ui/achievement_overlay.h>
 //#include <ui/button_guide.h>
@@ -28,1029 +28,34 @@
 #include <ui/game_window.h>
 //#include <ui/black_bar.h>
 //#include <patches/aspect_ratio_patches.h>
-//#include <user/config.h>
-#include <sdl_listener.h>
-#include <xxHashMap.h>
-
-#include "os/logger.h"
-#include <xxhash.h> // Remove if we include bc_diff.h
-#include <ankerl/unordered_dense.h> // Ainsley
-#include <gpu/shader_common.h>
-
-namespace plume
-{
-#ifdef UNLEASHED_RECOMP_D3D12
-    extern std::unique_ptr<RenderInterface> CreateD3D12Interface();
-#endif
-#ifdef SDL_VULKAN_ENABLED
-    extern std::unique_ptr<RenderInterface> CreateVulkanInterface(RenderWindow sdlWindow);
-#else
-    extern std::unique_ptr<RenderInterface> CreateVulkanInterface();
-#endif
-
-    static std::unique_ptr<RenderInterface> CreateVulkanInterfaceWrapper() {
-#ifdef SDL_VULKAN_ENABLED
-        return CreateVulkanInterface(GameWindow::s_renderWindow);
-#else
-        return CreateVulkanInterface();
-#endif
-    }
-}
-
-#pragma pack(push, 1)
-struct PipelineState
-{
-    GuestShader* vertexShader = nullptr;
-    GuestShader* pixelShader = nullptr;
-    GuestVertexDeclaration* vertexDeclaration = nullptr;
-    bool instancing = false;
-    bool zEnable = true;
-    bool zWriteEnable = true;
-    RenderBlend srcBlend = RenderBlend::ONE;
-    RenderBlend destBlend = RenderBlend::ZERO;
-    RenderCullMode cullMode = RenderCullMode::NONE;
-    RenderComparisonFunction zFunc = RenderComparisonFunction::LESS;
-    bool alphaBlendEnable = false;
-    RenderBlendOperation blendOp = RenderBlendOperation::ADD;
-    float slopeScaledDepthBias = 0.0f;
-    int32_t depthBias = 0;
-    RenderBlend srcBlendAlpha = RenderBlend::ONE;
-    RenderBlend destBlendAlpha = RenderBlend::ZERO;
-    RenderBlendOperation blendOpAlpha = RenderBlendOperation::ADD;
-    uint32_t colorWriteEnable = uint32_t(RenderColorWriteEnable::ALL);
-    RenderPrimitiveTopology primitiveTopology = RenderPrimitiveTopology::TRIANGLE_LIST;
-    uint8_t vertexStrides[16]{};
-    RenderFormat renderTargetFormat{};
-    RenderFormat depthStencilFormat{};
-    RenderSampleCounts sampleCount = RenderSampleCount::COUNT_1;
-    bool enableAlphaToCoverage = false;
-    uint32_t specConstants = 0;
-};
-#pragma pack(pop)
-
-struct SharedConstants
-{
-    uint32_t texture2DIndices[16]{};
-    uint32_t texture3DIndices[16]{};
-    uint32_t textureCubeIndices[16]{};
-    uint32_t samplerIndices[16]{};
-    uint32_t booleans{};
-    uint32_t swappedTexcoords{};
-    float alphaThreshold{};
-};
-
-static GuestSurface* g_renderTarget;
-static GuestSurface* g_depthStencil;
-static RenderFramebuffer* g_framebuffer;
-
-static PipelineState g_pipelineState;
-
-static SharedConstants g_sharedConstants;
-static GuestTexture* g_textures[16];
-static RenderSamplerDesc g_samplerDescs[16];
-
-#ifdef UNLEASHED_RECOMP_D3D12
-static bool g_vulkan = false;
-#else
-static constexpr bool g_vulkan = true;
-#endif
-
-static std::unique_ptr<RenderInterface> g_interface;
-static std::unique_ptr<RenderDevice> g_device;
-static RenderInputSlot g_inputSlots[16];
-
-static bool g_triangleStripWorkaround = false;
-
-static RenderDeviceCapabilities g_capabilities;
-
-static constexpr size_t NUM_FRAMES = 2;
-static constexpr size_t NUM_QUERIES = 2;
-
-static uint32_t g_frame = 0;
-//static uint32_t g_nextFrame = 1;
-
-static std::unique_ptr<RenderCommandQueue> g_queue;
-static std::unique_ptr<RenderCommandList> g_commandLists[NUM_FRAMES];
-static std::unique_ptr<RenderCommandFence> g_commandFences[NUM_FRAMES];
-static std::unique_ptr<RenderQueryPool> g_queryPools[NUM_FRAMES];
-static bool g_commandListStates[NUM_FRAMES];
-
-static Mutex g_copyMutex;
-static std::unique_ptr<RenderCommandQueue> g_copyQueue;
-static std::unique_ptr<RenderCommandList> g_copyCommandList;
-static std::unique_ptr<RenderCommandFence> g_copyCommandFence;
-
-static std::unique_ptr<RenderSwapChain> g_swapChain;
-static bool g_swapChainValid;
-
-static constexpr RenderFormat BACKBUFFER_FORMAT = RenderFormat::B8G8R8A8_UNORM;
-
-static std::unique_ptr<RenderCommandSemaphore> g_acquireSemaphores[NUM_FRAMES];
-static std::unique_ptr<RenderCommandSemaphore> g_renderSemaphores[NUM_FRAMES];
-static uint32_t g_backBufferIndex;
-static GuestSurface* g_backBuffer;
-
-static std::unique_ptr<RenderTexture> g_intermediaryBackBufferTexture;
-static uint32_t g_intermediaryBackBufferTextureWidth;
-static uint32_t g_intermediaryBackBufferTextureHeight;
-static uint32_t g_intermediaryBackBufferTextureDescriptorIndex;
-
-struct std::unique_ptr<RenderDescriptorSet> g_textureDescriptorSet;
-struct std::unique_ptr<RenderDescriptorSet> g_samplerDescriptorSet;
-
-static constexpr size_t TEXTURE_DESCRIPTOR_SIZE = 65536;
-static constexpr size_t SAMPLER_DESCRIPTOR_SIZE = 1024;
-
-enum
-{
-    TEXTURE_DESCRIPTOR_NULL_TEXTURE_2D,
-    TEXTURE_DESCRIPTOR_NULL_TEXTURE_3D,
-    TEXTURE_DESCRIPTOR_NULL_TEXTURE_CUBE,
-    TEXTURE_DESCRIPTOR_NULL_COUNT
-};
-
-struct TextureDescriptorAllocator
-{
-    Mutex mutex;
-    uint32_t capacity = TEXTURE_DESCRIPTOR_NULL_COUNT;
-    std::vector<uint32_t> freed;
-
-    uint32_t allocate()
-    {
-        std::lock_guard lock(mutex);
-
-        uint32_t value;
-        if (!freed.empty())
-        {
-            value = freed.back();
-            freed.pop_back();
-        }
-        else
-        {
-            value = capacity;
-            ++capacity;
-        }
-
-        return value;
-    }
-
-    void free(uint32_t value)
-    {
-        assert(value != NULL);
-        std::lock_guard lock(mutex);
-        freed.push_back(value);
-    }
-};
-
-static std::unique_ptr<RenderTexture> g_blankTextures[TEXTURE_DESCRIPTOR_NULL_COUNT];
-static std::unique_ptr<RenderTextureView> g_blankTextureViews[TEXTURE_DESCRIPTOR_NULL_COUNT];
-
-static TextureDescriptorAllocator g_textureDescriptorAllocator;
-
-static std::unique_ptr<RenderPipelineLayout> g_pipelineLayout;
-static xxHashMap<std::unique_ptr<RenderPipeline>> g_pipelines;
-
-static xxHashMap<std::pair<uint32_t, std::unique_ptr<RenderSampler>>> g_samplerStates;
-
-static std::unique_ptr<RenderShader> g_copyShader;
-
-static std::unique_ptr<RenderShader> g_copyColorShader;
-static ankerl::unordered_dense::map<RenderFormat, std::unique_ptr<RenderPipeline>> g_copyColorPipelines;
-static std::unique_ptr<RenderPipeline> g_copyDepthPipeline;
-
-static std::unique_ptr<RenderShader> g_resolveMsaaColorShaders[3];
-static ankerl::unordered_dense::map<RenderFormat, std::array<std::unique_ptr<RenderPipeline>, 3>> g_resolveMsaaColorPipelines;
-static std::unique_ptr<RenderPipeline> g_resolveMsaaDepthPipelines[3];
-
-enum
-{
-    GAUSSIAN_BLUR_3X3,
-    GAUSSIAN_BLUR_5X5,
-    GAUSSIAN_BLUR_7X7,
-    GAUSSIAN_BLUR_9X9,
-    GAUSSIAN_BLUR_COUNT
-};
-
-#ifdef UNLEASHED_RECOMP_D3D12
-
-#define CREATE_SHADER(NAME) \
-    g_device->createShader( \
-        g_vulkan ? g_##NAME##_spirv : g_##NAME##_dxil, \
-        g_vulkan ? sizeof(g_##NAME##_spirv) : sizeof(g_##NAME##_dxil), \
-        "main", \
-        g_vulkan ? RenderShaderFormat::SPIRV : RenderShaderFormat::DXIL)
-
-#else
-
-#define CREATE_SHADER(NAME) \
-    g_device->createShader(g_##NAME##_spirv, sizeof(g_##NAME##_spirv), "main", RenderShaderFormat::SPIRV)
-
-#endif
-
-static void LoadEmbeddedResources()
-{
-    LOGF_WARNING("!!! STUB !!!");
-/*
-    if (g_vulkan)
-    {
-        g_shaderCache = std::make_unique<uint8_t[]>(g_spirvCacheDecompressedSize);
-        ZSTD_decompress(g_shaderCache.get(), g_spirvCacheDecompressedSize, g_compressedSpirvCache, g_spirvCacheCompressedSize);
-    }
-#ifdef UNLEASHED_RECOMP_D3D12
-    else
-    {
-        g_shaderCache = std::make_unique<uint8_t[]>(g_dxilCacheDecompressedSize);
-        ZSTD_decompress(g_shaderCache.get(), g_dxilCacheDecompressedSize, g_compressedDxilCache, g_dxilCacheCompressedSize);
-    }
-#endif
-
-    g_buttonBcDiff = decompressZstd(g_button_bc_diff, g_button_bc_diff_uncompressed_size);
-*/
-}
-
-enum class RenderCommandType
-{
-    SetRenderState,
-    DestructResource,
-    UnlockTextureRect,
-    UnlockBuffer16,
-    UnlockBuffer32,
-    DrawImGui,
-    ExecuteCommandList,
-    BeginCommandList,
-    StretchRect,
-    SetRenderTarget,
-    SetDepthStencilSurface,
-    ExecutePendingStretchRectCommands,
-    Clear,
-    SetViewport,
-    SetTexture,
-    SetScissorRect,
-    SetSamplerState,
-    SetBooleans,
-    SetVertexShaderConstants,
-    SetPixelShaderConstants,
-    AddPipeline,
-    DrawPrimitive,
-    DrawIndexedPrimitive,
-    DrawPrimitiveUP,
-    SetVertexDeclaration,
-    SetVertexShader,
-    SetStreamSource,
-    SetIndices,
-    SetPixelShader,
-};
-
-struct RenderCommand
-{
-    RenderCommandType type;
-    union
-    {
-        struct
-        {
-            GuestRenderState type;
-            uint32_t value;
-        } setRenderState;
-
-        struct
-        {
-            GuestResource* resource;
-        } destructResource;
-
-        struct
-        {
-            GuestTexture* texture;
-        } unlockTextureRect;
-
-        struct
-        {
-            GuestBuffer* buffer;
-        } unlockBuffer;
-
-        struct
-        {
-            GuestDevice* device;
-            uint32_t flags;
-            GuestTexture* texture;
-        } stretchRect;
-
-        struct
-        {
-            GuestSurface* renderTarget;
-        } setRenderTarget;
-
-        struct
-        {
-            GuestSurface* depthStencil;
-        } setDepthStencilSurface;
-
-        struct
-        {
-            uint32_t flags;
-            float color[4];
-            float z;
-        } clear;
-
-        struct
-        {
-            float x;
-            float y;
-            float width;
-            float height;
-            float minDepth;
-            float maxDepth;
-        } setViewport;
-
-        struct
-        {
-            uint32_t index;
-            GuestTexture* texture;
-        } setTexture;
-
-        struct
-        {
-            int32_t left;
-            int32_t top;
-            int32_t right;
-            int32_t bottom;
-        } setScissorRect;
-
-        struct
-        {
-            uint32_t index;
-            uint32_t data0;
-            uint32_t data3;
-            uint32_t data5;
-        } setSamplerState;
-
-        struct
-        {
-            uint32_t booleans;
-        } setBooleans;
-
-        struct
-        {
-            uint8_t* memory;
-            uint32_t index;
-            uint32_t size;
-        } setVertexShaderConstants;
-
-        struct
-        {
-            uint8_t* memory;
-            uint32_t index;
-            uint32_t size;
-        } setPixelShaderConstants;
-
-        struct
-        {
-            XXH64_hash_t hash;
-            RenderPipeline* pipeline;
-        } addPipeline;
-
-        struct
-        {
-            uint32_t primitiveType;
-            uint32_t startVertex;
-            uint32_t primitiveCount;
-        } drawPrimitive;
-
-        struct
-        {
-            uint32_t primitiveType;
-            int32_t baseVertexIndex;
-            uint32_t startIndex;
-            uint32_t primCount;
-        } drawIndexedPrimitive;
-/*
-        struct
-        {
-            uint32_t primitiveType;
-            uint32_t primitiveCount;
-            uint8_t* vertexStreamZeroData;
-            uint32_t vertexStreamZeroSize;
-            uint32_t vertexStreamZeroStride;
-            CsdFilterState csdFilterState;
-        } drawPrimitiveUP;
-*/
-        struct
-        {
-            GuestVertexDeclaration* vertexDeclaration;
-        } setVertexDeclaration;
-
-        struct
-        {
-            GuestShader* shader;
-        } setVertexShader;
-
-        struct
-        {
-            uint32_t index;
-            GuestBuffer* buffer;
-            uint32_t offset;
-            uint32_t stride;
-        } setStreamSource;
-
-        struct
-        {
-            GuestBuffer* buffer;
-        } setIndices;
-
-        struct
-        {
-            GuestShader* shader;
-        } setPixelShader;
-    };
-};
-
-
-static void ApplyLowEndDefaults()
-{
-    LOGF_WARNING("!!! STUB !!!");
-/*
-    bool changed = false;
-
-    ApplyLowEndDefault(Config::AntiAliasing, EAntiAliasing::MSAA2x, changed);
-    ApplyLowEndDefault(Config::ShadowResolution, EShadowResolution::Original, changed);
-    ApplyLowEndDefault(Config::TransparencyAntiAliasing, false, changed);
-    ApplyLowEndDefault(Config::GITextureFiltering, EGITextureFiltering::Bilinear, changed);
-
-    if (changed)
-    {
-        Config::Save();
-    }
-*/
-}
-
-static void CheckSwapChain()
-{
-    LOGF_WARNING("!!! setVsyncEnabled STUB !!!");
-
-    g_swapChain->setVsyncEnabled(false);
-    g_swapChainValid &= !g_swapChain->needsResize();
-
-    if (!g_swapChainValid)
-    {
-        Video::WaitForGPU();
-        g_backBuffer->framebuffers.clear();
-        g_swapChainValid = g_swapChain->resize();
-        g_needsResize = g_swapChainValid;
-    }
-
-    if (g_swapChainValid)
-    {
- //       g_swapChainAcquireProfiler.Begin();
-        g_swapChainValid = g_swapChain->acquireTexture(g_acquireSemaphores[g_frame].get(), &g_backBufferIndex);
- //       g_swapChainAcquireProfiler.End();
-    }
-
-//    if (g_needsResize)
-//        Video::ComputeViewportDimensions();
-
-    g_backBuffer->width = Video::s_viewportWidth;
-    g_backBuffer->height = Video::s_viewportHeight;
-}
-
-static void BeginCommandList()
-{
-    g_renderTarget = g_backBuffer;
-    g_depthStencil = nullptr;
-    g_framebuffer = nullptr;
-
-    g_pipelineState.renderTargetFormat = BACKBUFFER_FORMAT;
-    g_pipelineState.depthStencilFormat = RenderFormat::UNKNOWN;
-
-    if (g_swapChainValid)
-    {
-        uint32_t width = Video::s_viewportWidth;
-        uint32_t height = Video::s_viewportHeight;
-
-        LOGF_WARNING("!!! XboxColorCorrection and Brightness STUB !!!");
-        bool usingIntermediaryTexture = (width != g_swapChain->getWidth()) || (height != g_swapChain->getHeight()) ||
-            false || (abs(0.5f - 0.5f) > 0.001f);
-
-        if (usingIntermediaryTexture)
-        {
-            if (g_intermediaryBackBufferTextureWidth != width ||
-                g_intermediaryBackBufferTextureHeight != height)
-            {
-                if (g_intermediaryBackBufferTextureDescriptorIndex == NULL)
-                    g_intermediaryBackBufferTextureDescriptorIndex = g_textureDescriptorAllocator.allocate();
-
-                Video::WaitForGPU(); // Fine to wait for GPU, this'll only happen during resize.
-
-                g_intermediaryBackBufferTexture = g_device->createTexture(RenderTextureDesc::Texture2D(width, height, 1, BACKBUFFER_FORMAT, RenderTextureFlag::RENDER_TARGET));
-                g_textureDescriptorSet->setTexture(g_intermediaryBackBufferTextureDescriptorIndex, g_intermediaryBackBufferTexture.get(), RenderTextureLayout::SHADER_READ);
-
-                g_intermediaryBackBufferTextureWidth = width;
-                g_intermediaryBackBufferTextureHeight = height;
-
-                g_backBuffer->framebuffers.clear();
-            }
-
-            g_backBuffer->texture = g_intermediaryBackBufferTexture.get();
-        }
-        else
-        {
-            g_backBuffer->texture = g_swapChain->getTexture(g_backBufferIndex);
-        }
-    }
-    else
-    {
-        g_backBuffer->texture = g_backBuffer->textureHolder.get();
-    }
-
-    g_backBuffer->layout = RenderTextureLayout::UNKNOWN;
-
-    for (size_t i = 0; i < 16; i++)
-    {
-        g_sharedConstants.texture2DIndices[i] = TEXTURE_DESCRIPTOR_NULL_TEXTURE_2D;
-        g_sharedConstants.texture3DIndices[i] = TEXTURE_DESCRIPTOR_NULL_TEXTURE_3D;
-        g_sharedConstants.textureCubeIndices[i] = TEXTURE_DESCRIPTOR_NULL_TEXTURE_CUBE;
-    }
-
-    memset(g_textures, 0, sizeof(g_textures));
-
-    LOGF_WARNING("!!! BICUBIC STUB !!!");
-//    if (Config::GITextureFiltering == EGITextureFiltering::Bicubic)
-//        g_pipelineState.specConstants |= SPEC_CONSTANT_BICUBIC_GI_FILTER;
-//    else
-        g_pipelineState.specConstants &= ~SPEC_CONSTANT_BICUBIC_GI_FILTER;
-
-    auto& commandList = g_commandLists[g_frame];
-
-    commandList->begin();
-    commandList->resetQueryPool(g_queryPools[g_frame].get(), 0, NUM_QUERIES);
-    commandList->writeTimestamp(g_queryPools[g_frame].get(), 0);
-    commandList->setGraphicsPipelineLayout(g_pipelineLayout.get());
-    commandList->setGraphicsDescriptorSet(g_textureDescriptorSet.get(), 0);
-    commandList->setGraphicsDescriptorSet(g_textureDescriptorSet.get(), 1);
-    commandList->setGraphicsDescriptorSet(g_textureDescriptorSet.get(), 2);
-    commandList->setGraphicsDescriptorSet(g_samplerDescriptorSet.get(), 3);
-}
-
-static std::vector<GuestResource*> g_tempResources[NUM_FRAMES];
-static std::vector<std::unique_ptr<RenderBuffer>> g_tempBuffers[NUM_FRAMES];
-
-static void DestructTempResources()
-{
-    for (auto resource : g_tempResources[g_frame])
-    {
-        switch (resource->type)
-        {
-        case ResourceType::Texture:
-        case ResourceType::VolumeTexture:
-        {
-            const auto texture = reinterpret_cast<GuestTexture*>(resource);
-
-            if (texture->mappedMemory != nullptr)
-                g_userHeap.Free(texture->mappedMemory);
-
-            g_textureDescriptorAllocator.free(texture->descriptorIndex);
-
-            if (texture->patchedTexture != nullptr)
-                g_textureDescriptorAllocator.free(texture->patchedTexture->descriptorIndex);
-
-            texture->~GuestTexture();
-            break;
-        }
-
-        case ResourceType::VertexBuffer:
-        case ResourceType::IndexBuffer:
-        {
-            const auto buffer = reinterpret_cast<GuestBuffer*>(resource);
-
-            if (buffer->mappedMemory != nullptr)
-                g_userHeap.Free(buffer->mappedMemory);
-
-            buffer->~GuestBuffer();
-            break;
-        }
-
-        case ResourceType::RenderTarget:
-        case ResourceType::DepthStencil:
-        {
-            const auto surface = reinterpret_cast<GuestSurface*>(resource);
-
-            if (surface->descriptorIndex != NULL)
-                g_textureDescriptorAllocator.free(surface->descriptorIndex);
-
-            surface->~GuestSurface();
-            break;
-        }
-
-        case ResourceType::VertexDeclaration:
-            reinterpret_cast<GuestVertexDeclaration*>(resource)->~GuestVertexDeclaration();
-            break;
-
-        case ResourceType::VertexShader:
-        case ResourceType::PixelShader:
-        {
-            reinterpret_cast<GuestShader*>(resource)->~GuestShader();
-            break;
-        }
-        }
-
-        g_userHeap.Free(resource);
-    }
-
-    g_tempResources[g_frame].clear();
-    g_tempBuffers[g_frame].clear();
-}
-
-static uint32_t g_waitForGPUCount = 0;
-
-void Video::WaitForGPU()
-{
-    g_waitForGPUCount++;
-
-    if (g_vulkan)
-    {
-        g_device->waitIdle();
-    }
-    else
-    {
-        for (size_t i = 0; i < NUM_FRAMES; i++)
-        {
-            if (g_commandListStates[i])
-            {
-                g_queue->waitForCommandFence(g_commandFences[i].get());
-                g_commandListStates[i] = false;
-            }
-        }
-        g_queue->executeCommandLists(nullptr, g_commandFences[0].get());
-        g_queue->waitForCommandFence(g_commandFences[0].get());
-    }
-}
-
-bool Video::CreateHostDevice(const char* sdlVideoDriver)
-{
-    for (uint32_t i = 0; i < 16; i++)
-        g_inputSlots[i].index = i;
-
-//    IMGUI_CHECKVERSION();
-//    ImGui::CreateContext();
-//    ImPlot::CreateContext();
-
-    GameWindow::Init(sdlVideoDriver);
-
-#ifdef UNLEASHED_RECOMP_D3D12
-    g_vulkan = DetectWine() || Config::GraphicsAPI == EGraphicsAPI::Vulkan;
-#endif
-
-    // Attempt to create the possible backends using a vector of function pointers. Whichever succeeds first will be the chosen API.
-    using RenderInterfaceFunction = std::unique_ptr<RenderInterface>(void);
-    std::vector<RenderInterfaceFunction*> interfaceFunctions;
-
-#ifdef UNLEASHED_RECOMP_D3D12
-    interfaceFunctions.push_back(g_vulkan ? CreateVulkanInterfaceWrapper : CreateD3D12Interface);
-    interfaceFunctions.push_back(g_vulkan ? CreateD3D12Interface : CreateVulkanInterfaceWrapper);
-#else
-    interfaceFunctions.push_back(CreateVulkanInterfaceWrapper);
-#endif
-
-    for (RenderInterfaceFunction* interfaceFunction : interfaceFunctions)
-    {
-        g_interface = interfaceFunction();
-        if (g_interface != nullptr)
-        {
-            g_device = g_interface->createDevice();
-            if (g_device != nullptr)
-            {
-                const RenderDeviceDescription& deviceDescription = g_device->getDescription();
-
-#ifdef UNLEASHED_RECOMP_D3D12
-                if (interfaceFunction == CreateD3D12Interface)
-                {
-                    if (deviceDescription.vendor == RenderDeviceVendor::AMD)
-                    {
-                        // AMD Drivers before this version have a known issue where MSAA resolve targets will fail to work correctly.
-                        // If no specific graphics API was selected, we silently destroy this one and move to the next option as it'll
-                        // just work incorrectly otherwise and result in visual glitches and 3D rendering not working in general.
-                        constexpr uint64_t MinimumAMDDriverVersion = 0x1F00005DC2005CULL; // 31.0.24002.92
-                        if ((Config::GraphicsAPI == EGraphicsAPI::Auto) && (deviceDescription.driverVersion < MinimumAMDDriverVersion))
-                        {
-                            g_device.reset();
-                            g_interface.reset();
-                            continue;
-                        }
-                    }
-
-                    // Hardware resolve seems to be completely bugged on Intel D3D12 drivers.
-                    g_hardwareResolve = (deviceDescription.vendor != RenderDeviceVendor::INTEL);
-                    g_hardwareDepthResolve = (deviceDescription.vendor != RenderDeviceVendor::INTEL);
-                }
-
-                g_vulkan = (interfaceFunction == CreateVulkanInterfaceWrapper);
-#endif
-                // Enable triangle strip workaround if we are on AMD, as there is a bug where
-                // restart indices cause triangles to be culled incorrectly. Converting them to degenerate triangles fixes it.
-                g_triangleStripWorkaround = (deviceDescription.vendor == RenderDeviceVendor::AMD);
-
-                break;
-            }
-        }
-    }
-
-    if (g_device == nullptr)
-    {
-        return false;
-    }
-
-    g_capabilities = g_device->getCapabilities();
-
-    LoadEmbeddedResources();
-
-    constexpr uint64_t LowEndMemoryLimit = 2048ULL * 1024ULL * 1024ULL;
-    RenderDeviceDescription deviceDescription = g_device->getDescription();
-    bool lowEndType = deviceDescription.type != RenderDeviceType::UNKNOWN && deviceDescription.type != RenderDeviceType::DISCRETE;
-    bool lowEndMemory = deviceDescription.dedicatedVideoMemory < LowEndMemoryLimit;
-    bool lowEndUMA = deviceDescription.type == RenderDeviceType::UNKNOWN && g_capabilities.uma;
-    if (lowEndType || lowEndMemory || lowEndUMA)
-    {
-        // Switch to low end defaults if a non-discrete GPU was detected or a low amount of VRAM was detected.
-        // Checking for UMA on D3D12 seems to be a reliable way to detect integrated GPUs.
-        ApplyLowEndDefaults();
-    }
-
-    g_queue = g_device->createCommandQueue(RenderCommandListType::DIRECT);
-
-    for (auto& commandList : g_commandLists)
-        commandList = g_device->createCommandList(RenderCommandListType::DIRECT);
-
-    for (auto& commandFence : g_commandFences)
-        commandFence = g_device->createCommandFence();
-
-    for (auto& queryPool : g_queryPools)
-        queryPool = g_device->createQueryPool(NUM_QUERIES);
-
-    g_copyQueue = g_device->createCommandQueue(RenderCommandListType::COPY);
-    g_copyCommandList = g_device->createCommandList(RenderCommandListType::COPY);
-    g_copyCommandFence = g_device->createCommandFence();
-
-    uint32_t bufferCount = 2;
-
-    LOGF_WARNING("!!! TRIPLE BUFFERING STUBBED !!!");
-/*
-    switch (Config::TripleBuffering)
-    {
-    case ETripleBuffering::Auto:
-        if (g_vulkan)
-        {
-            // Defaulting to 3 is fine if presentWait as supported, as the maximum frame latency allowed is only 1.
-            bufferCount = g_device->getCapabilities().presentWait ? 3 : 2;
-        }
-        else
-        {
-            // Defaulting to 3 is fine on D3D12 thanks to flip discard model.
-            bufferCount = 3;
-        }
-
-        break;
-    case ETripleBuffering::On:
-        bufferCount = 3;
-        break;
-    case ETripleBuffering::Off:
-        bufferCount = 2;
-        break;
-    }
-*/
-
-    LOGF_WARNING("!!! MaxFrameLatency STUBBED !!!");
-    g_swapChain = g_queue->createSwapChain(GameWindow::s_renderWindow, bufferCount, BACKBUFFER_FORMAT, 2);
-    LOGF_WARNING("!!! setVsyncEnabled STUBBED !!!");
-    g_swapChain->setVsyncEnabled(false);
-    g_swapChainValid = !g_swapChain->needsResize();
-
-    for (auto& acquireSemaphore : g_acquireSemaphores)
-        acquireSemaphore = g_device->createCommandSemaphore();
-
-    for (auto& renderSemaphore : g_renderSemaphores)
-        renderSemaphore = g_device->createCommandSemaphore();
-
-    RenderPipelineLayoutBuilder pipelineLayoutBuilder;
-    pipelineLayoutBuilder.begin(false, true);
-
-    RenderDescriptorSetBuilder descriptorSetBuilder;
-    descriptorSetBuilder.begin();
-    descriptorSetBuilder.addTexture(0, TEXTURE_DESCRIPTOR_SIZE);
-    descriptorSetBuilder.end(true, TEXTURE_DESCRIPTOR_SIZE);
-
-    g_textureDescriptorSet = descriptorSetBuilder.create(g_device.get());
-
-    for (size_t i = 0; i < TEXTURE_DESCRIPTOR_NULL_COUNT; i++)
-    {
-        auto& texture = g_blankTextures[i];
-        auto& textureView = g_blankTextureViews[i];
-
-        RenderTextureDesc desc;
-        desc.width = 1;
-        desc.height = 1;
-        desc.depth = 1;
-        desc.mipLevels = 1;
-        desc.format = RenderFormat::R8_UNORM;
-
-        RenderTextureViewDesc viewDesc;
-        viewDesc.format = desc.format;
-        viewDesc.componentMapping = RenderComponentMapping(RenderSwizzle::ZERO, RenderSwizzle::ZERO, RenderSwizzle::ZERO, RenderSwizzle::ZERO);
-        viewDesc.mipLevels = 1;
-
-        switch (i)
-        {
-        case TEXTURE_DESCRIPTOR_NULL_TEXTURE_2D:
-            desc.dimension = RenderTextureDimension::TEXTURE_2D;
-            desc.arraySize = 1;
-            viewDesc.dimension = RenderTextureViewDimension::TEXTURE_2D;
-            break;
-
-        case TEXTURE_DESCRIPTOR_NULL_TEXTURE_3D:
-            desc.dimension = RenderTextureDimension::TEXTURE_3D;
-            desc.arraySize = 1;
-            viewDesc.dimension = RenderTextureViewDimension::TEXTURE_3D;
-            break;
-
-        case TEXTURE_DESCRIPTOR_NULL_TEXTURE_CUBE:
-            desc.dimension = RenderTextureDimension::TEXTURE_2D;
-            desc.arraySize = 6;
-            desc.flags = RenderTextureFlag::CUBE;
-            viewDesc.dimension = RenderTextureViewDimension::TEXTURE_CUBE;
-            break;
-
-        default:
-            assert(false && "Unknown null descriptor dimension");
-            break;
-        }
-
-        texture = g_device->createTexture(desc);
-        textureView = texture->createTextureView(viewDesc);
-
-        g_textureDescriptorSet->setTexture(i, texture.get(), RenderTextureLayout::SHADER_READ, textureView.get());
-    }
-
-    pipelineLayoutBuilder.addDescriptorSet(descriptorSetBuilder);
-    pipelineLayoutBuilder.addDescriptorSet(descriptorSetBuilder);
-    pipelineLayoutBuilder.addDescriptorSet(descriptorSetBuilder);
-
-    descriptorSetBuilder.begin();
-    descriptorSetBuilder.addSampler(0, SAMPLER_DESCRIPTOR_SIZE);
-    descriptorSetBuilder.end(true, SAMPLER_DESCRIPTOR_SIZE);
-
-    g_samplerDescriptorSet = descriptorSetBuilder.create(g_device.get());
-    auto& [descriptorIndex, sampler] = g_samplerStates[XXH3_64bits(&g_samplerDescs[0], sizeof(RenderSamplerDesc))];
-    descriptorIndex = 1;
-    sampler = g_device->createSampler(g_samplerDescs[0]);
-    g_samplerDescriptorSet->setSampler(0, sampler.get());
-
-    pipelineLayoutBuilder.addDescriptorSet(descriptorSetBuilder);
-
-    if (g_vulkan)
-    {
-        pipelineLayoutBuilder.addPushConstant(0, 4, 24, RenderShaderStageFlag::VERTEX | RenderShaderStageFlag::PIXEL);
-    }
-    else
-    {
-        pipelineLayoutBuilder.addRootDescriptor(0, 4, RenderRootDescriptorType::CONSTANT_BUFFER);
-        pipelineLayoutBuilder.addRootDescriptor(1, 4, RenderRootDescriptorType::CONSTANT_BUFFER);
-        pipelineLayoutBuilder.addRootDescriptor(2, 4, RenderRootDescriptorType::CONSTANT_BUFFER);
-        pipelineLayoutBuilder.addPushConstant(3, 4, 4, RenderShaderStageFlag::PIXEL); // For copy/resolve shaders.
-    }
-    pipelineLayoutBuilder.end();
-
-    g_pipelineLayout = pipelineLayoutBuilder.create(g_device.get());
-    
-    LOGF_WARNING("!!! Shader STUB !!!");
-/*
-    g_copyShader = CREATE_SHADER(copy_vs);
-    g_copyColorShader = CREATE_SHADER(copy_color_ps);
-    auto copyDepthShader = CREATE_SHADER(copy_depth_ps);
-
-    RenderGraphicsPipelineDesc desc;
-    desc.pipelineLayout = g_pipelineLayout.get();
-    desc.vertexShader = g_copyShader.get();
-    desc.pixelShader = copyDepthShader.get();
-    desc.depthFunction = RenderComparisonFunction::ALWAYS;
-    desc.depthEnabled = true;
-    desc.depthWriteEnabled = true;
-    desc.depthTargetFormat = RenderFormat::D32_FLOAT;
-    g_copyDepthPipeline = g_device->createGraphicsPipeline(desc);
-
-    g_resolveMsaaColorShaders[0] = CREATE_SHADER(resolve_msaa_color_2x);
-    g_resolveMsaaColorShaders[1] = CREATE_SHADER(resolve_msaa_color_4x);
-    g_resolveMsaaColorShaders[2] = CREATE_SHADER(resolve_msaa_color_8x);
-
-    for (size_t i = 0; i < std::size(g_resolveMsaaDepthPipelines); i++)
-    {
-        std::unique_ptr<RenderShader> pixelShader;
-        switch (i)
-        {
-        case 0:
-            pixelShader = CREATE_SHADER(resolve_msaa_depth_2x);
-            break;
-        case 1:
-            pixelShader = CREATE_SHADER(resolve_msaa_depth_4x);
-            break;
-        case 2:
-            pixelShader = CREATE_SHADER(resolve_msaa_depth_8x);
-            break;
-        }
-
-        desc = {};
-        desc.pipelineLayout = g_pipelineLayout.get();
-        desc.vertexShader = g_copyShader.get();
-        desc.pixelShader = pixelShader.get();
-        desc.depthFunction = RenderComparisonFunction::ALWAYS;
-        desc.depthEnabled = true;
-        desc.depthWriteEnabled = true;
-        desc.depthTargetFormat = RenderFormat::D32_FLOAT;
-        g_resolveMsaaDepthPipelines[i] = g_device->createGraphicsPipeline(desc);
-    }
-
-    for (auto& shader : g_gaussianBlurShaders)
-        shader = std::make_unique<GuestShader>(ResourceType::PixelShader);
-
-    g_gaussianBlurShaders[GAUSSIAN_BLUR_3X3]->shader = CREATE_SHADER(gaussian_blur_3x3);
-    g_gaussianBlurShaders[GAUSSIAN_BLUR_5X5]->shader = CREATE_SHADER(gaussian_blur_5x5);
-    g_gaussianBlurShaders[GAUSSIAN_BLUR_7X7]->shader = CREATE_SHADER(gaussian_blur_7x7);
-    g_gaussianBlurShaders[GAUSSIAN_BLUR_9X9]->shader = CREATE_SHADER(gaussian_blur_9x9);
-
-    g_csdFilterShader = std::make_unique<GuestShader>(ResourceType::PixelShader);
-    g_csdFilterShader->shader = CREATE_SHADER(csd_filter_ps);
-
-    g_enhancedMotionBlurShader = std::make_unique<GuestShader>(ResourceType::PixelShader);
-    g_enhancedMotionBlurShader->shader = CREATE_SHADER(enhanced_motion_blur_ps);
-
-    CreateImGuiBackend();
-
-    auto gammaCorrectionShader = CREATE_SHADER(gamma_correction_ps);
-
-    desc = {};
-    desc.pipelineLayout = g_pipelineLayout.get();
-    desc.vertexShader = g_copyShader.get();
-    desc.pixelShader = gammaCorrectionShader.get();
-    desc.renderTargetFormat[0] = BACKBUFFER_FORMAT;
-    desc.renderTargetBlend[0] = RenderBlendDesc::Copy();
-    desc.renderTargetCount = 1;
-    g_gammaCorrectionPipeline = g_device->createGraphicsPipeline(desc);
-*/
-    g_backBuffer = g_userHeap.AllocPhysical<GuestSurface>(ResourceType::RenderTarget);
-    g_backBuffer->width = 1280;
-    g_backBuffer->height = 720;
-    g_backBuffer->format = BACKBUFFER_FORMAT;
-    g_backBuffer->textureHolder = g_device->createTexture(RenderTextureDesc::Texture2D(1, 1, 1, BACKBUFFER_FORMAT, RenderTextureFlag::RENDER_TARGET));
-
-    LOGF_WARNING("!!! ComputeViewportDimensions STUB !!!");
-//    Video::ComputeViewportDimensions();
-    CheckSwapChain();
-    BeginCommandList();
-
-    RenderTextureBarrier blankTextureBarriers[TEXTURE_DESCRIPTOR_NULL_COUNT];
-    for (size_t i = 0; i < TEXTURE_DESCRIPTOR_NULL_COUNT; i++)
-        blankTextureBarriers[i] = RenderTextureBarrier(g_blankTextures[i].get(), RenderTextureLayout::SHADER_READ);
-
-    g_commandLists[g_frame]->barriers(RenderBarrierStage::NONE, blankTextureBarriers, std::size(blankTextureBarriers));
-
-    return true;
-}
-
-/*
-
-#include "imgui/imgui_common.h"
-#include "imgui/imgui_snapshot.h"
-#include "imgui/imgui_font_builder.h"
-
-#include <app.h>
-#include <bc_diff.h>
-#include <cpu/guest_thread.h>
-#include <decompressor.h>
-#include <kernel/function.h>
-#include <kernel/heap.h>
-#include <hid/hid.h>
-#include <kernel/memory.h>
-#include <kernel/xdbf.h>
-#include <res/bc_diff/button_bc_diff.bin.h>
-#include <res/font/im_font_atlas.dds.h>
-#include <shader/shader_cache.h>
-#include <SWA.h>
-#include <ui/achievement_menu.h>
-#include <ui/achievement_overlay.h>
-#include <ui/button_guide.h>
-#include <ui/fader.h>
-#include <ui/imgui_utils.h>
-#include <ui/installer_wizard.h>
-#include <ui/message_window.h>
-#include <ui/options_menu.h>
-#include <ui/game_window.h>
-#include <ui/black_bar.h>
-#include <patches/aspect_ratio_patches.h>
 #include <user/config.h>
 #include <sdl_listener.h>
 #include <xxHashMap.h>
+
+// AINSLEY ADDED HEADERS HERE
+#include "os/logger.h"
+//#include <xxhash.h> // Remove if we include bc_diff.h
+#include <ankerl/unordered_dense.h>
+#include <gpu/shader_common.h>
+#include <blockingconcurrentqueue.h>
+#include <map>
+
+ShaderCacheEntry g_shaderCacheEntries[] = {};
+const size_t g_shaderCacheEntryCount = 0;
+
+const uint8_t g_compressedDxilCache[] = {};
+const size_t g_dxilCacheCompressedSize = 0;
+const size_t g_dxilCacheDecompressedSize = 0;
+
+const uint8_t g_compressedSpirvCache[] = {};
+const size_t g_spirvCacheCompressedSize = 0;
+const size_t g_spirvCacheDecompressedSize = 0;
 
 #if defined(ASYNC_PSO_DEBUG) || defined(PSO_CACHING)
 #include <magic_enum/magic_enum.hpp>
 #endif
 
-#include "../../tools/XenosRecomp/XenosRecomp/shader_common.h"
+//#include "../../tools/XenosRecomp/XenosRecomp/shader_common.h"
 
 #ifdef UNLEASHED_RECOMP_D3D12
 #include "shader/blend_color_alpha_ps.hlsl.dxil.h"
@@ -1077,7 +82,7 @@ bool Video::CreateHostDevice(const char* sdlVideoDriver)
 #include "shader/resolve_msaa_depth_4x.hlsl.dxil.h"
 #include "shader/resolve_msaa_depth_8x.hlsl.dxil.h"
 #endif
-
+/*
 #include "shader/blend_color_alpha_ps.hlsl.spirv.h"
 #include "shader/copy_vs.hlsl.spirv.h"
 #include "shader/copy_color_ps.hlsl.spirv.h"
@@ -1101,7 +106,7 @@ bool Video::CreateHostDevice(const char* sdlVideoDriver)
 #include "shader/resolve_msaa_depth_2x.hlsl.spirv.h"
 #include "shader/resolve_msaa_depth_4x.hlsl.spirv.h"
 #include "shader/resolve_msaa_depth_8x.hlsl.spirv.h"
-
+*/
 #ifdef _WIN32
 extern "C"
 {
@@ -1744,12 +749,14 @@ static void DestructTempResources()
 
 static std::thread::id g_presentThreadId = std::this_thread::get_id();
 
+/*
 PPC_FUNC_IMPL(__imp__sub_824ECA00);
 PPC_FUNC(sub_824ECA00)
 {
     g_presentThreadId = std::this_thread::get_id();
     __imp__sub_824ECA00(ctx, base);
 }
+*/
 
 static ankerl::unordered_dense::map<RenderTexture*, RenderTextureLayout> g_barrierMap;
 
@@ -1783,20 +790,23 @@ static std::unique_ptr<uint8_t[]> g_buttonBcDiff;
 
 static void LoadEmbeddedResources()
 {
-    if (g_vulkan)
-    {
-        g_shaderCache = std::make_unique<uint8_t[]>(g_spirvCacheDecompressedSize);
-        ZSTD_decompress(g_shaderCache.get(), g_spirvCacheDecompressedSize, g_compressedSpirvCache, g_spirvCacheCompressedSize);
-    }
-#ifdef UNLEASHED_RECOMP_D3D12
-    else
-    {
-        g_shaderCache = std::make_unique<uint8_t[]>(g_dxilCacheDecompressedSize);
-        ZSTD_decompress(g_shaderCache.get(), g_dxilCacheDecompressedSize, g_compressedDxilCache, g_dxilCacheCompressedSize);
-    }
-#endif
+    LOGF_WARNING("!!! STUB !!!");
+    /*
+        if (g_vulkan)
+        {
+            g_shaderCache = std::make_unique<uint8_t[]>(g_spirvCacheDecompressedSize);
+            ZSTD_decompress(g_shaderCache.get(), g_spirvCacheDecompressedSize, g_compressedSpirvCache, g_spirvCacheCompressedSize);
+        }
+    #ifdef UNLEASHED_RECOMP_D3D12
+        else
+        {
+            g_shaderCache = std::make_unique<uint8_t[]>(g_dxilCacheDecompressedSize);
+            ZSTD_decompress(g_shaderCache.get(), g_dxilCacheDecompressedSize, g_compressedDxilCache, g_dxilCacheCompressedSize);
+        }
+    #endif
 
-    g_buttonBcDiff = decompressZstd(g_button_bc_diff, g_button_bc_diff_uncompressed_size);
+        g_buttonBcDiff = decompressZstd(g_button_bc_diff, g_button_bc_diff_uncompressed_size);
+    */
 }
 
 enum class CsdFilterState
@@ -2027,6 +1037,9 @@ static void SetAlphaTestMode(bool enable)
     uint32_t specConstants = 0;
     bool enableAlphaToCoverage = false;
 
+    LOGF_WARNING("!!! STUB !!!");
+
+/*
     if (enable)
     {
         enableAlphaToCoverage = Config::TransparencyAntiAliasing && g_renderTarget != nullptr && g_renderTarget->sampleCount != RenderSampleCount::COUNT_1;
@@ -2036,7 +1049,7 @@ static void SetAlphaTestMode(bool enable)
         else
             specConstants = SPEC_CONSTANT_ALPHA_TEST;
     }
-
+*/
     specConstants |= (g_pipelineState.specConstants & ~(SPEC_CONSTANT_ALPHA_TEST | SPEC_CONSTANT_ALPHA_TO_COVERAGE));
 
     SetDirtyValue(g_dirtyStates.pipelineState, g_pipelineState.enableAlphaToCoverage, enableAlphaToCoverage);
@@ -2344,6 +1357,7 @@ static void ExecuteCopyCommandList(const T& function)
 static constexpr uint32_t PITCH_ALIGNMENT = 0x100;
 static constexpr uint32_t PLACEMENT_ALIGNMENT = 0x200;
 
+/*
 struct ImGuiPushConstants
 {
     ImVec2 boundsMin{};
@@ -2529,10 +1543,13 @@ static void CreateImGuiBackend()
     }
 #endif
 }
+*/
 
 static void CheckSwapChain()
 {
-    g_swapChain->setVsyncEnabled(Config::VSync);
+    LOGF_WARNING("!!! setVsyncEnabled STUB !!!");
+
+    g_swapChain->setVsyncEnabled(false);
     g_swapChainValid &= !g_swapChain->needsResize();
 
     if (!g_swapChainValid)
@@ -2545,13 +1562,13 @@ static void CheckSwapChain()
 
     if (g_swapChainValid)
     {
-        g_swapChainAcquireProfiler.Begin();
+        //       g_swapChainAcquireProfiler.Begin();
         g_swapChainValid = g_swapChain->acquireTexture(g_acquireSemaphores[g_frame].get(), &g_backBufferIndex);
-        g_swapChainAcquireProfiler.End();
+        //       g_swapChainAcquireProfiler.End();
     }
 
-    if (g_needsResize)
-        Video::ComputeViewportDimensions();
+    //    if (g_needsResize)
+    //        Video::ComputeViewportDimensions();
 
     g_backBuffer->width = Video::s_viewportWidth;
     g_backBuffer->height = Video::s_viewportHeight;
@@ -2571,8 +1588,9 @@ static void BeginCommandList()
         uint32_t width = Video::s_viewportWidth;
         uint32_t height = Video::s_viewportHeight;
 
+        LOGF_WARNING("!!! XboxColorCorrection and Brightness STUB !!!");
         bool usingIntermediaryTexture = (width != g_swapChain->getWidth()) || (height != g_swapChain->getHeight()) ||
-            Config::XboxColorCorrection || (abs(Config::Brightness - 0.5f) > 0.001f);
+            false || (abs(0.5f - 0.5f) > 0.001f);
 
         if (usingIntermediaryTexture)
         {
@@ -2616,10 +1634,11 @@ static void BeginCommandList()
 
     memset(g_textures, 0, sizeof(g_textures));
 
-    if (Config::GITextureFiltering == EGITextureFiltering::Bicubic)
-        g_pipelineState.specConstants |= SPEC_CONSTANT_BICUBIC_GI_FILTER;
-    else
-        g_pipelineState.specConstants &= ~SPEC_CONSTANT_BICUBIC_GI_FILTER;
+    LOGF_WARNING("!!! BICUBIC STUB !!!");
+    //    if (Config::GITextureFiltering == EGITextureFiltering::Bicubic)
+    //        g_pipelineState.specConstants |= SPEC_CONSTANT_BICUBIC_GI_FILTER;
+    //    else
+    g_pipelineState.specConstants &= ~SPEC_CONSTANT_BICUBIC_GI_FILTER;
 
     auto& commandList = g_commandLists[g_frame];
 
@@ -2633,6 +1652,7 @@ static void BeginCommandList()
     commandList->setGraphicsDescriptorSet(g_samplerDescriptorSet.get(), 3);
 }
 
+/*
 template<typename T>
 static void ApplyLowEndDefault(ConfigDef<T>& configDef, T newDefault, bool& changed)
 {
@@ -2644,20 +1664,24 @@ static void ApplyLowEndDefault(ConfigDef<T>& configDef, T newDefault, bool& chan
 
     configDef.DefaultValue = newDefault;
 }
+*/
 
 static void ApplyLowEndDefaults()
 {
-    bool changed = false;
+    LOGF_WARNING("!!! STUB !!!");
+    /*
+        bool changed = false;
 
-    ApplyLowEndDefault(Config::AntiAliasing, EAntiAliasing::MSAA2x, changed);
-    ApplyLowEndDefault(Config::ShadowResolution, EShadowResolution::Original, changed);
-    ApplyLowEndDefault(Config::TransparencyAntiAliasing, false, changed);
-    ApplyLowEndDefault(Config::GITextureFiltering, EGITextureFiltering::Bilinear, changed);
+        ApplyLowEndDefault(Config::AntiAliasing, EAntiAliasing::MSAA2x, changed);
+        ApplyLowEndDefault(Config::ShadowResolution, EShadowResolution::Original, changed);
+        ApplyLowEndDefault(Config::TransparencyAntiAliasing, false, changed);
+        ApplyLowEndDefault(Config::GITextureFiltering, EGITextureFiltering::Bilinear, changed);
 
-    if (changed)
-    {
-        Config::Save();
-    }
+        if (changed)
+        {
+            Config::Save();
+        }
+    */
 }
 
 bool Video::CreateHostDevice(const char* sdlVideoDriver)
@@ -2665,9 +1689,9 @@ bool Video::CreateHostDevice(const char* sdlVideoDriver)
     for (uint32_t i = 0; i < 16; i++)
         g_inputSlots[i].index = i;
 
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImPlot::CreateContext();
+    //    IMGUI_CHECKVERSION();
+    //    ImGui::CreateContext();
+    //    ImPlot::CreateContext();
 
     GameWindow::Init(sdlVideoDriver);
 
@@ -2691,7 +1715,7 @@ bool Video::CreateHostDevice(const char* sdlVideoDriver)
         g_interface = interfaceFunction();
         if (g_interface != nullptr)
         {
-            g_device = g_interface->createDevice(Config::GraphicsDevice);
+            g_device = g_interface->createDevice();
             if (g_device != nullptr)
             {
                 const RenderDeviceDescription& deviceDescription = g_device->getDescription();
@@ -2767,31 +1791,36 @@ bool Video::CreateHostDevice(const char* sdlVideoDriver)
 
     uint32_t bufferCount = 2;
 
-    switch (Config::TripleBuffering)
-    {
-    case ETripleBuffering::Auto:
-        if (g_vulkan)
+    LOGF_WARNING("!!! TRIPLE BUFFERING STUBBED !!!");
+    /*
+        switch (Config::TripleBuffering)
         {
-            // Defaulting to 3 is fine if presentWait as supported, as the maximum frame latency allowed is only 1.
-            bufferCount = g_device->getCapabilities().presentWait ? 3 : 2;
-        }
-        else
-        {
-            // Defaulting to 3 is fine on D3D12 thanks to flip discard model.
+        case ETripleBuffering::Auto:
+            if (g_vulkan)
+            {
+                // Defaulting to 3 is fine if presentWait as supported, as the maximum frame latency allowed is only 1.
+                bufferCount = g_device->getCapabilities().presentWait ? 3 : 2;
+            }
+            else
+            {
+                // Defaulting to 3 is fine on D3D12 thanks to flip discard model.
+                bufferCount = 3;
+            }
+
+            break;
+        case ETripleBuffering::On:
             bufferCount = 3;
+            break;
+        case ETripleBuffering::Off:
+            bufferCount = 2;
+            break;
         }
+    */
 
-        break;
-    case ETripleBuffering::On:
-        bufferCount = 3;
-        break;
-    case ETripleBuffering::Off:
-        bufferCount = 2;
-        break;
-    }
-
-    g_swapChain = g_queue->createSwapChain(GameWindow::s_renderWindow, bufferCount, BACKBUFFER_FORMAT, Config::MaxFrameLatency);
-    g_swapChain->setVsyncEnabled(Config::VSync);
+    LOGF_WARNING("!!! MaxFrameLatency STUBBED !!!");
+    g_swapChain = g_queue->createSwapChain(GameWindow::s_renderWindow, bufferCount, BACKBUFFER_FORMAT, 2);
+    LOGF_WARNING("!!! setVsyncEnabled STUBBED !!!");
+    g_swapChain->setVsyncEnabled(false);
     g_swapChainValid = !g_swapChain->needsResize();
 
     for (auto& acquireSemaphore : g_acquireSemaphores)
@@ -2890,85 +1919,88 @@ bool Video::CreateHostDevice(const char* sdlVideoDriver)
 
     g_pipelineLayout = pipelineLayoutBuilder.create(g_device.get());
 
-    g_copyShader = CREATE_SHADER(copy_vs);
-    g_copyColorShader = CREATE_SHADER(copy_color_ps);
-    auto copyDepthShader = CREATE_SHADER(copy_depth_ps);
+    LOGF_WARNING("!!! Shader STUB !!!");
+    /*
+        g_copyShader = CREATE_SHADER(copy_vs);
+        g_copyColorShader = CREATE_SHADER(copy_color_ps);
+        auto copyDepthShader = CREATE_SHADER(copy_depth_ps);
 
-    RenderGraphicsPipelineDesc desc;
-    desc.pipelineLayout = g_pipelineLayout.get();
-    desc.vertexShader = g_copyShader.get();
-    desc.pixelShader = copyDepthShader.get();
-    desc.depthFunction = RenderComparisonFunction::ALWAYS;
-    desc.depthEnabled = true;
-    desc.depthWriteEnabled = true;
-    desc.depthTargetFormat = RenderFormat::D32_FLOAT;
-    g_copyDepthPipeline = g_device->createGraphicsPipeline(desc);
-
-    g_resolveMsaaColorShaders[0] = CREATE_SHADER(resolve_msaa_color_2x);
-    g_resolveMsaaColorShaders[1] = CREATE_SHADER(resolve_msaa_color_4x);
-    g_resolveMsaaColorShaders[2] = CREATE_SHADER(resolve_msaa_color_8x);
-
-    for (size_t i = 0; i < std::size(g_resolveMsaaDepthPipelines); i++)
-    {
-        std::unique_ptr<RenderShader> pixelShader;
-        switch (i)
-        {
-        case 0:
-            pixelShader = CREATE_SHADER(resolve_msaa_depth_2x);
-            break;
-        case 1:
-            pixelShader = CREATE_SHADER(resolve_msaa_depth_4x);
-            break;
-        case 2:
-            pixelShader = CREATE_SHADER(resolve_msaa_depth_8x);
-            break;
-        }
-
-        desc = {};
+        RenderGraphicsPipelineDesc desc;
         desc.pipelineLayout = g_pipelineLayout.get();
         desc.vertexShader = g_copyShader.get();
-        desc.pixelShader = pixelShader.get();
+        desc.pixelShader = copyDepthShader.get();
         desc.depthFunction = RenderComparisonFunction::ALWAYS;
         desc.depthEnabled = true;
         desc.depthWriteEnabled = true;
         desc.depthTargetFormat = RenderFormat::D32_FLOAT;
-        g_resolveMsaaDepthPipelines[i] = g_device->createGraphicsPipeline(desc);
-    }
+        g_copyDepthPipeline = g_device->createGraphicsPipeline(desc);
 
-    for (auto& shader : g_gaussianBlurShaders)
-        shader = std::make_unique<GuestShader>(ResourceType::PixelShader);
+        g_resolveMsaaColorShaders[0] = CREATE_SHADER(resolve_msaa_color_2x);
+        g_resolveMsaaColorShaders[1] = CREATE_SHADER(resolve_msaa_color_4x);
+        g_resolveMsaaColorShaders[2] = CREATE_SHADER(resolve_msaa_color_8x);
 
-    g_gaussianBlurShaders[GAUSSIAN_BLUR_3X3]->shader = CREATE_SHADER(gaussian_blur_3x3);
-    g_gaussianBlurShaders[GAUSSIAN_BLUR_5X5]->shader = CREATE_SHADER(gaussian_blur_5x5);
-    g_gaussianBlurShaders[GAUSSIAN_BLUR_7X7]->shader = CREATE_SHADER(gaussian_blur_7x7);
-    g_gaussianBlurShaders[GAUSSIAN_BLUR_9X9]->shader = CREATE_SHADER(gaussian_blur_9x9);
+        for (size_t i = 0; i < std::size(g_resolveMsaaDepthPipelines); i++)
+        {
+            std::unique_ptr<RenderShader> pixelShader;
+            switch (i)
+            {
+            case 0:
+                pixelShader = CREATE_SHADER(resolve_msaa_depth_2x);
+                break;
+            case 1:
+                pixelShader = CREATE_SHADER(resolve_msaa_depth_4x);
+                break;
+            case 2:
+                pixelShader = CREATE_SHADER(resolve_msaa_depth_8x);
+                break;
+            }
 
-    g_csdFilterShader = std::make_unique<GuestShader>(ResourceType::PixelShader);
-    g_csdFilterShader->shader = CREATE_SHADER(csd_filter_ps);
+            desc = {};
+            desc.pipelineLayout = g_pipelineLayout.get();
+            desc.vertexShader = g_copyShader.get();
+            desc.pixelShader = pixelShader.get();
+            desc.depthFunction = RenderComparisonFunction::ALWAYS;
+            desc.depthEnabled = true;
+            desc.depthWriteEnabled = true;
+            desc.depthTargetFormat = RenderFormat::D32_FLOAT;
+            g_resolveMsaaDepthPipelines[i] = g_device->createGraphicsPipeline(desc);
+        }
 
-    g_enhancedMotionBlurShader = std::make_unique<GuestShader>(ResourceType::PixelShader);
-    g_enhancedMotionBlurShader->shader = CREATE_SHADER(enhanced_motion_blur_ps);
+        for (auto& shader : g_gaussianBlurShaders)
+            shader = std::make_unique<GuestShader>(ResourceType::PixelShader);
 
-    CreateImGuiBackend();
+        g_gaussianBlurShaders[GAUSSIAN_BLUR_3X3]->shader = CREATE_SHADER(gaussian_blur_3x3);
+        g_gaussianBlurShaders[GAUSSIAN_BLUR_5X5]->shader = CREATE_SHADER(gaussian_blur_5x5);
+        g_gaussianBlurShaders[GAUSSIAN_BLUR_7X7]->shader = CREATE_SHADER(gaussian_blur_7x7);
+        g_gaussianBlurShaders[GAUSSIAN_BLUR_9X9]->shader = CREATE_SHADER(gaussian_blur_9x9);
 
-    auto gammaCorrectionShader = CREATE_SHADER(gamma_correction_ps);
+        g_csdFilterShader = std::make_unique<GuestShader>(ResourceType::PixelShader);
+        g_csdFilterShader->shader = CREATE_SHADER(csd_filter_ps);
 
-    desc = {};
-    desc.pipelineLayout = g_pipelineLayout.get();
-    desc.vertexShader = g_copyShader.get();
-    desc.pixelShader = gammaCorrectionShader.get();
-    desc.renderTargetFormat[0] = BACKBUFFER_FORMAT;
-    desc.renderTargetBlend[0] = RenderBlendDesc::Copy();
-    desc.renderTargetCount = 1;
-    g_gammaCorrectionPipeline = g_device->createGraphicsPipeline(desc);
+        g_enhancedMotionBlurShader = std::make_unique<GuestShader>(ResourceType::PixelShader);
+        g_enhancedMotionBlurShader->shader = CREATE_SHADER(enhanced_motion_blur_ps);
 
+        CreateImGuiBackend();
+
+        auto gammaCorrectionShader = CREATE_SHADER(gamma_correction_ps);
+
+        desc = {};
+        desc.pipelineLayout = g_pipelineLayout.get();
+        desc.vertexShader = g_copyShader.get();
+        desc.pixelShader = gammaCorrectionShader.get();
+        desc.renderTargetFormat[0] = BACKBUFFER_FORMAT;
+        desc.renderTargetBlend[0] = RenderBlendDesc::Copy();
+        desc.renderTargetCount = 1;
+        g_gammaCorrectionPipeline = g_device->createGraphicsPipeline(desc);
+    */
     g_backBuffer = g_userHeap.AllocPhysical<GuestSurface>(ResourceType::RenderTarget);
     g_backBuffer->width = 1280;
     g_backBuffer->height = 720;
     g_backBuffer->format = BACKBUFFER_FORMAT;
     g_backBuffer->textureHolder = g_device->createTexture(RenderTextureDesc::Texture2D(1, 1, 1, BACKBUFFER_FORMAT, RenderTextureFlag::RENDER_TARGET));
 
-    Video::ComputeViewportDimensions();
+    LOGF_WARNING("!!! ComputeViewportDimensions STUB !!!");
+    //    Video::ComputeViewportDimensions();
     CheckSwapChain();
     BeginCommandList();
 
@@ -3008,6 +2040,9 @@ void Video::WaitForGPU()
 
 static uint32_t CreateDevice(uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5, be<uint32_t>* a6)
 {
+    LOG_WARNING("!!! STUB !!!");
+    std::exit(0);
+
     g_xdbfTextureCache = std::unordered_map<uint16_t, GuestTexture*>();
 
     for (auto& achievement : g_xdbfWrapper.GetAchievements(XDBF_LANGUAGE_ENGLISH))
@@ -3252,6 +2287,7 @@ static const char* DeviceTypeName(RenderDeviceType type)
     }
 }
 
+/*
 static void DrawProfiler()
 {
     bool toggleProfiler = SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_F1] != 0;
@@ -3497,9 +2533,11 @@ static void DrawImGui()
         g_renderQueue.enqueue(cmd);
     }
 }
+*/
 
 static void SetFramebuffer(GuestSurface* renderTarget, GuestSurface* depthStencil, bool settingForClear);
 
+/*
 static void ProcDrawImGui(const RenderCommand& cmd)
 {
     // Make sure the backbuffer is the current target.
@@ -3644,6 +2682,7 @@ static void ProcDrawImGui(const RenderCommand& cmd)
         }
     }
 }
+*/
 
 // We have to check for this to properly handle the following situation:
 // 1. Wait on swap chain.
@@ -3677,7 +2716,7 @@ void Video::Present()
     cmd.type = RenderCommandType::ExecutePendingStretchRectCommands;
     g_renderQueue.enqueue(cmd);
 
-    DrawImGui();
+//    DrawImGui();
 
     cmd.type = RenderCommandType::ExecuteCommandList;
     g_renderQueue.enqueue(cmd);
@@ -3734,7 +2773,8 @@ void Video::Present()
     cmd.type = RenderCommandType::BeginCommandList;
     g_renderQueue.enqueue(cmd);
 
-    if (Config::FPS >= FPS_MIN && Config::FPS < FPS_MAX)
+// To do - Ainsley
+    if (60 >= 15 && 60 < 240)
     {
         using namespace std::chrono_literals;
 
@@ -3754,7 +2794,7 @@ void Video::Present()
             s_next = now;
         }
 
-        s_next += 1000000000ns / Config::FPS;
+        s_next += 1000000000ns / 60;
     }
 
     g_presentProfiler.Reset();
@@ -3795,6 +2835,7 @@ static void ProcExecuteCommandList(const RenderCommand& cmd)
                 int32_t viewportHeight;
             } constants;
 
+ /*
             if (Config::XboxColorCorrection)
             {
                 constants.gammaR = 1.2f;
@@ -3803,12 +2844,13 @@ static void ProcExecuteCommandList(const RenderCommand& cmd)
             }
             else
             {
+*/
                 constants.gammaR = 1.0f;
                 constants.gammaG = 1.0f;
                 constants.gammaB = 1.0f;
-            }
+//            }
 
-            float offset = (Config::Brightness - 0.5f) * 1.2f;
+            float offset = (0.5f - 0.5f) * 1.2f;
 
             constants.gammaR = 1.0f / std::clamp(constants.gammaR + offset, 0.1f, 4.0f);
             constants.gammaG = 1.0f / std::clamp(constants.gammaG + offset, 0.1f, 4.0f);
@@ -3899,6 +2941,8 @@ void Video::ComputeViewportDimensions()
     uint32_t height = g_swapChain->getHeight();
     float aspectRatio = float(width) / float(height);
 
+    LOGF_WARNING("!!! STUB !!!");
+/*
     switch (Config::AspectRatio)
     {
     case EAspectRatio::Wide:
@@ -3941,6 +2985,7 @@ void Video::ComputeViewportDimensions()
     }
 
     AspectRatioPatches::ComputeOffsets();
+*/
 }
 
 static RenderFormat ConvertFormat(uint32_t format)
@@ -4066,7 +3111,8 @@ static GuestSurface* CreateSurface(uint32_t width, uint32_t height, uint32_t for
     desc.depth = 1;
     desc.mipLevels = 1;
     desc.arraySize = 1;
-    desc.multisampling.sampleCount = multiSample != 0 && Config::AntiAliasing != EAntiAliasing::None ? int32_t(Config::AntiAliasing.Value) : RenderSampleCount::COUNT_1;
+    desc.multisampling.sampleCount = RenderSampleCount::COUNT_1;
+//    desc.multisampling.sampleCount = multiSample != 0 && Config::AntiAliasing != EAntiAliasing::None ? int32_t(Config::AntiAliasing.Value) : RenderSampleCount::COUNT_1;
     desc.format = ConvertFormat(format);
     desc.flags = desc.format == RenderFormat::D32_FLOAT ? RenderTextureFlag::DEPTH_TARGET : RenderTextureFlag::RENDER_TARGET;
 
@@ -4628,6 +3674,7 @@ static void ProcSetViewport(const RenderCommand& cmd)
 
 static void SetTexture(GuestDevice* device, uint32_t index, GuestTexture* texture)
 {
+/*
     auto isPlayStation = Config::ControllerIcons == EControllerIcons::PlayStation;
 
     if (Config::ControllerIcons == EControllerIcons::Auto)
@@ -4635,7 +3682,7 @@ static void SetTexture(GuestDevice* device, uint32_t index, GuestTexture* textur
 
     if (isPlayStation && texture != nullptr && texture->patchedTexture != nullptr)
         texture = texture->patchedTexture.get();
-
+*/
     RenderCommand cmd;
     cmd.type = RenderCommandType::SetTexture;
     cmd.setTexture.index = index;
@@ -4717,6 +3764,9 @@ static void ProcSetScissorRect(const RenderCommand& cmd)
 
 static RenderShader* GetOrLinkShader(GuestShader* guestShader, uint32_t specConstants)
 {
+    LOGF_WARNING("!!! STUB !!!");
+    return nullptr;
+/*
     if (g_vulkan ||
         guestShader->shaderCacheEntry == nullptr ||
         guestShader->shaderCacheEntry->specConstantsMask == 0)
@@ -4870,6 +3920,7 @@ static RenderShader* GetOrLinkShader(GuestShader* guestShader, uint32_t specCons
 #endif
 
     return shader;
+*/
 }
 
 static void SanitizePipelineState(PipelineState& pipelineState)
@@ -4909,11 +3960,11 @@ static void SanitizePipelineState(PipelineState& pipelineState)
     }
 
     uint32_t specConstantsMask = 0;
-    if (pipelineState.vertexShader->shaderCacheEntry != nullptr)
-        specConstantsMask |= pipelineState.vertexShader->shaderCacheEntry->specConstantsMask;
+//    if (pipelineState.vertexShader->shaderCacheEntry != nullptr)
+//        specConstantsMask |= pipelineState.vertexShader->shaderCacheEntry->specConstantsMask;
 
-    if (pipelineState.pixelShader != nullptr && pipelineState.pixelShader->shaderCacheEntry != nullptr)
-        specConstantsMask |= pipelineState.pixelShader->shaderCacheEntry->specConstantsMask;
+//    if (pipelineState.pixelShader != nullptr && pipelineState.pixelShader->shaderCacheEntry != nullptr)
+//        specConstantsMask |= pipelineState.pixelShader->shaderCacheEntry->specConstantsMask;
 
     pipelineState.specConstants &= specConstantsMask;
 }
@@ -4926,8 +3977,8 @@ static std::unique_ptr<RenderPipeline> CreateGraphicsPipeline(const PipelineStat
 
     RenderGraphicsPipelineDesc desc;
     desc.pipelineLayout = g_pipelineLayout.get();
-    desc.vertexShader = GetOrLinkShader(pipelineState.vertexShader, pipelineState.specConstants);
-    desc.pixelShader = pipelineState.pixelShader != nullptr ? GetOrLinkShader(pipelineState.pixelShader, pipelineState.specConstants) : nullptr;
+//    desc.vertexShader = GetOrLinkShader(pipelineState.vertexShader, pipelineState.specConstants);
+//    desc.pixelShader = pipelineState.pixelShader != nullptr ? GetOrLinkShader(pipelineState.pixelShader, pipelineState.specConstants) : nullptr;
     desc.depthFunction = pipelineState.zFunc;
     desc.depthEnabled = pipelineState.zEnable;
     desc.depthWriteEnabled = pipelineState.zWriteEnable;
@@ -5240,12 +4291,13 @@ static void ProcSetSamplerState(const RenderCommand& cmd)
     auto mipFilter = ConvertTextureFilter((args.data3 >> 23) & 0x3);
     const auto borderColor = ConvertBorderColor(args.data5 & 0x3);
 
-    bool anisotropyEnabled = Config::AnisotropicFiltering > 0 && mipFilter == RenderFilter::LINEAR;
-    if (anisotropyEnabled)
-    {
+    bool anisotropyEnabled = true;
+//    bool anisotropyEnabled = Config::AnisotropicFiltering > 0 && mipFilter == RenderFilter::LINEAR;
+//    if (anisotropyEnabled)
+//    {
         magFilter = RenderFilter::LINEAR;
         minFilter = RenderFilter::LINEAR;
-    }
+//    }
 
     auto& samplerDesc = g_samplerDescs[args.index];
 
@@ -5257,7 +4309,7 @@ static void ProcSetSamplerState(const RenderCommand& cmd)
     SetDirtyValue(dirty, samplerDesc.minFilter, minFilter);
     SetDirtyValue(dirty, samplerDesc.magFilter, magFilter);
     SetDirtyValue(dirty, samplerDesc.mipmapMode, RenderMipmapMode(mipFilter));
-    SetDirtyValue(dirty, samplerDesc.maxAnisotropy, anisotropyEnabled ? Config::AnisotropicFiltering : 16u);
+    SetDirtyValue(dirty, samplerDesc.maxAnisotropy, 16u);
     SetDirtyValue(dirty, samplerDesc.anisotropyEnabled, anisotropyEnabled);
     SetDirtyValue(dirty, samplerDesc.borderColor, borderColor);
 
@@ -5931,13 +4983,13 @@ static GuestShader* CreateShader(const be<uint32_t>* function, ResourceType reso
         {
             shader = g_userHeap.AllocPhysical<GuestShader>(resourceType);
 
-            if (hash == 0x85ED723035ECF535)
-                shader->shader = CREATE_SHADER(blend_color_alpha_ps);
-            else if (hash == 0xB1086A4947A797DE)
-                shader->shader = CREATE_SHADER(csd_no_tex_vs);
-            else if (hash == 0xB4CAFC034A37C8A8)
-                shader->shader = CREATE_SHADER(csd_vs);
-            else
+//            if (hash == 0x85ED723035ECF535)
+//                shader->shader = CREATE_SHADER(blend_color_alpha_ps);
+//            else if (hash == 0xB1086A4947A797DE)
+//                shader->shader = CREATE_SHADER(csd_no_tex_vs);
+//            else if (hash == 0xB4CAFC034A37C8A8)
+//                shader->shader = CREATE_SHADER(csd_vs);
+//            else
                 shader->shaderCacheEntry = findResult;
 
             findResult->guestShader = shader;
@@ -6043,7 +5095,7 @@ static void ProcSetPixelShader(const RenderCommand& cmd)
     if (shader != nullptr &&
         shader->shaderCacheEntry != nullptr)
     {
-        if (shader->shaderCacheEntry->hash == 0x4294510C775F4EE8)
+ /*       if (shader->shaderCacheEntry->hash == 0x4294510C775F4EE8)
         {
             size_t shaderIndex = GAUSSIAN_BLUR_3X3;
 
@@ -6105,7 +5157,7 @@ static void ProcSetPixelShader(const RenderCommand& cmd)
         {
             shader = g_enhancedMotionBlurShader.get();
         }
-    }
+*/    }
 
     SetDirtyValue(g_dirtyStates.pipelineState, g_pipelineState.pixelShader, shader);
 }
@@ -6133,7 +5185,7 @@ static std::thread g_renderThread([]
                 case RenderCommandType::UnlockTextureRect:                 ProcUnlockTextureRect(cmd); break;
                 case RenderCommandType::UnlockBuffer16:                    ProcUnlockBuffer16(cmd); break;
                 case RenderCommandType::UnlockBuffer32:                    ProcUnlockBuffer32(cmd); break;
-                case RenderCommandType::DrawImGui:                         ProcDrawImGui(cmd); break;
+//                case RenderCommandType::DrawImGui:                         ProcDrawImGui(cmd); break;
                 case RenderCommandType::ExecuteCommandList:                ProcExecuteCommandList(cmd); break;
                 case RenderCommandType::BeginCommandList:                  ProcBeginCommandList(cmd); break;
                 case RenderCommandType::StretchRect:                       ProcStretchRect(cmd); break;
@@ -6710,37 +5762,29 @@ static void MakePictureData(GuestPictureData* pictureData, uint8_t* data, uint32
     }
 }
 
-void IndexBufferLengthMidAsmHook(PPCRegister& r3)
-{
-    r3.u64 *= 2;
-}
-
-void SetShadowResolutionMidAsmHook(PPCRegister& r11)
-{
-    auto res = (int32_t)Config::ShadowResolution.Value;
-
-    if (res > 0)
-        r11.u64 = res;
-}
-
 static void SetResolution(be<uint32_t>* device)
 {
+    LOGF_WARNING("!!! STUB !!!");
+/*
     Video::ComputeViewportDimensions();
 
     uint32_t width = uint32_t(round(Video::s_viewportWidth * Config::ResolutionScale));
     uint32_t height = uint32_t(round(Video::s_viewportHeight * Config::ResolutionScale));
     device[46] = width == 0 ? 880 : width;
     device[47] = height == 0 ? 720 : height;
+*/
 }
 
 // The game does some weird stuff to render targets if they are above 
 // 1024x1024 resolution, setting this bool at address 20 seems to avoid all that.
+/*
 PPC_FUNC(sub_82E9F048)
 {
     PPC_STORE_U8(ctx.r4.u32 + 20, 1);
     PPC_STORE_U32(ctx.r4.u32 + 44, PPC_LOAD_U32(ctx.r4.u32 + 8)); // Width
     PPC_STORE_U32(ctx.r4.u32 + 48, PPC_LOAD_U32(ctx.r4.u32 + 12)); // Height
 }
+*/
 
 static GuestShader* g_movieVertexShader;
 static GuestShader* g_moviePixelShader;
@@ -6748,6 +5792,8 @@ static GuestVertexDeclaration* g_movieVertexDeclaration;
 
 static void ScreenShaderInit(be<uint32_t>* a1, uint32_t a2, uint32_t a3, GuestVertexElement* vertexElements)
 {
+    LOGF_WARNING("!!! STUB !!!");
+/*
     if (g_moviePixelShader == nullptr)
     {
         g_moviePixelShader = g_userHeap.AllocPhysical<GuestShader>(ResourceType::PixelShader);
@@ -6770,6 +5816,7 @@ static void ScreenShaderInit(be<uint32_t>* a1, uint32_t a2, uint32_t a3, GuestVe
     a1[2] = g_memory.MapVirtual(g_moviePixelShader);
     a1[3] = g_memory.MapVirtual(g_movieVertexShader);
     a1[4] = g_memory.MapVirtual(g_movieVertexDeclaration);
+*/
 }
 
 void MovieRendererMidAsmHook(PPCRegister& r3)
@@ -6789,6 +5836,7 @@ void MovieRendererMidAsmHook(PPCRegister& r3)
 static PPCRegister g_r4;
 static PPCRegister g_r5;
 
+/*
 // CRenderDirectorFxPipeline::Initialize
 PPC_FUNC_IMPL(__imp__sub_8258C8A0);
 PPC_FUNC(sub_8258C8A0)
@@ -6938,10 +5986,10 @@ PPC_FUNC(sub_824EB290)
     __imp__sub_824EB290(ctx, base);
     g_renderDirectorProfiler.End();
 }
-
+*/
 // World map disables VERT+, so scaling by width does not work for it.
 static uint32_t g_forceCheckHeightForPostProcessFix;
-
+/*
 // SWA::CWorldMapCamera::CWorldMapCamera
 PPC_FUNC_IMPL(__imp__sub_824860E0);
 PPC_FUNC(sub_824860E0)
@@ -6959,9 +6007,11 @@ PPC_FUNC(sub_824831D0)
 
     __imp__sub_824831D0(ctx, base);
 }
-
+*/
 void PostProcessResolutionFix(PPCRegister& r4, PPCRegister& f1, PPCRegister& f2)
 {
+    LOGF_WARNING("!!! STUB !!!");
+/*
     auto device = reinterpret_cast<be<uint32_t>*>(g_memory.Translate(r4.u32));
 
     uint32_t width = device[46].get();
@@ -6976,6 +6026,7 @@ void PostProcessResolutionFix(PPCRegister& r4, PPCRegister& f1, PPCRegister& f2)
 
     f1.f64 *= factor;
     f2.f64 *= factor;
+*/
 }
 
 void LightShaftAspectRatioFix(PPCRegister& f28, PPCRegister& f0)
@@ -7114,10 +6165,10 @@ static void PipelineCompilerThread()
 #ifdef _WIN32
         int newThreadPriority = threadPriority;
 
-        bool loading = *SWA::SGlobals::ms_IsLoading;
-        if (loading)
-            newThreadPriority = THREAD_PRIORITY_HIGHEST;
-        else
+//        bool loading = *SWA::SGlobals::ms_IsLoading;
+//        if (loading)
+//            newThreadPriority = THREAD_PRIORITY_HIGHEST;
+//        else
             newThreadPriority = THREAD_PRIORITY_LOWEST;
 
         if (newThreadPriority != threadPriority)
@@ -7175,7 +6226,8 @@ static std::vector<std::unique_ptr<std::thread>> g_pipelineCompilerThreads = [](
 
         if (shouldCompile)
         {
-            bool loading = *SWA::SGlobals::ms_IsLoading;
+            bool loading = false;
+//            bool loading = *SWA::SGlobals::ms_IsLoading;
             if (!loading && isPrecompiledPipeline)
             {
                 // We can just compile here during the logos.
@@ -7465,25 +6517,26 @@ static std::vector<std::unique_ptr<std::thread>> g_pipelineCompilerThreads = [](
 
                 pipelineState.renderTargetFormat = RenderFormat::R16G16B16A16_FLOAT;
                 pipelineState.depthStencilFormat = RenderFormat::D32_FLOAT;
-                pipelineState.sampleCount = Config::AntiAliasing != EAntiAliasing::None ? int32_t(Config::AntiAliasing.Value) : 1;
+//                pipelineState.sampleCount = Config::AntiAliasing != EAntiAliasing::None ? int32_t(Config::AntiAliasing.Value) : 1; // AINSLEY
+                pipelineState.sampleCount = 1;
 
                 if (pipelineState.vertexDeclaration->hasR11G11B10Normal)
                     pipelineState.specConstants |= SPEC_CONSTANT_R11G11B10_NORMAL;
 
-                if (Config::GITextureFiltering == EGITextureFiltering::Bicubic)
+//                if (Config::GITextureFiltering == EGITextureFiltering::Bicubic)
                     pipelineState.specConstants |= SPEC_CONSTANT_BICUBIC_GI_FILTER;
 
                 if (mesh.layer == MeshLayer::PunchThrough)
                 {
-                    if (Config::AntiAliasing != EAntiAliasing::None && Config::TransparencyAntiAliasing)
-                    {
-                        pipelineState.enableAlphaToCoverage = true;
-                        pipelineState.specConstants |= SPEC_CONSTANT_ALPHA_TO_COVERAGE;
-                    }
-                    else
-                    {
+//                    if (Config::AntiAliasing != EAntiAliasing::None && Config::TransparencyAntiAliasing)
+//                    {
+//                        pipelineState.enableAlphaToCoverage = true;
+//                        pipelineState.specConstants |= SPEC_CONSTANT_ALPHA_TO_COVERAGE;
+//                    }
+//                    else
+//                    {
                         pipelineState.specConstants |= SPEC_CONSTANT_ALPHA_TEST;
-                    }
+//                    }
                 }
 
                 if (!isSky)
@@ -7512,7 +6565,8 @@ static std::vector<std::unique_ptr<std::thread>> g_pipelineCompilerThreads = [](
 
                 // We cannot rely on this being accurate during loading as SceneEffect.prm.xml gets loaded a bit later.
                 bool planarReflectionEnabled = *reinterpret_cast<bool*>(g_memory.Translate(0x832FA0D8));
-                bool loading = *SWA::SGlobals::ms_IsLoading;
+//                bool loading = *SWA::SGlobals::ms_IsLoading; // AINSLEY
+                bool loading = false;
                 bool compileNoMsaaPipeline = pipelineState.sampleCount != 1 && (loading || planarReflectionEnabled);
 
                 auto noMsaaPipeline = pipelineState;
@@ -7734,7 +6788,8 @@ static std::vector<std::unique_ptr<std::thread>> g_pipelineCompilerThreads = [](
                 pipelineState.renderTargetFormat = renderTargetFormat;
 
                 if (renderTargetFormat == RenderFormat::R16G16B16A16_FLOAT)
-                    pipelineState.sampleCount = Config::AntiAliasing != EAntiAliasing::None ? int32_t(Config::AntiAliasing.Value) : 1;
+                    pipelineState.sampleCount = 1; // AINSLEY // pipelineState.sampleCount = Config::AntiAliasing != EAntiAliasing::None ? int32_t(Config::AntiAliasing.Value) : 1;
+
                 else
                     pipelineState.sampleCount = 1;
 
@@ -7769,7 +6824,7 @@ static std::vector<std::unique_ptr<std::thread>> g_pipelineCompilerThreads = [](
     }
 
     static std::thread::id g_mainThreadId = std::this_thread::get_id();
-
+    /*
     // SWA::CGameModeStage::ExitLoading
     PPC_FUNC_IMPL(__imp__sub_825369A0);
     PPC_FUNC(sub_825369A0)
@@ -7832,7 +6887,7 @@ static std::vector<std::unique_ptr<std::thread>> g_pipelineCompilerThreads = [](
             __imp__sub_82E87598(ctx, base);
         }
     }
-
+    */
     void GetDatabaseDataMidAsmHook(PPCRegister& r1, PPCRegister& r4)
     {
         auto& databaseData = *reinterpret_cast<boost::shared_ptr<Hedgehog::Database::CDatabaseData>*>(
@@ -8077,7 +7132,7 @@ static std::vector<std::unique_ptr<std::thread>> g_pipelineCompilerThreads = [](
                             pipelineState.slopeScaledDepthBias = 0.0f;
                         }
 
-                        if (Config::GITextureFiltering == EGITextureFiltering::Bicubic)
+//                        if (Config::GITextureFiltering == EGITextureFiltering::Bicubic) // AINSLEY
                             pipelineState.specConstants |= SPEC_CONSTANT_BICUBIC_GI_FILTER;
 
                         auto createGraphicsPipeline = [&](PipelineState& pipelineStateToCreate, const char* name)
@@ -8085,7 +7140,7 @@ static std::vector<std::unique_ptr<std::thread>> g_pipelineCompilerThreads = [](
                                 SanitizePipelineState(pipelineStateToCreate);
                                 EnqueueGraphicsPipelineCompilation(pipelineStateToCreate, tokenPair, name, true);
                             };
-
+/* AINSLEY
                         // Compile both MSAA and non MSAA variants to work with reflection maps. The render formats are an assumption but it should hold true.
                         if (Config::AntiAliasing != EAntiAliasing::None &&
                             pipelineState.renderTargetFormat == RenderFormat::R16G16B16A16_FLOAT &&
@@ -8103,7 +7158,7 @@ static std::vector<std::unique_ptr<std::thread>> g_pipelineCompilerThreads = [](
 
                             createGraphicsPipeline(msaaPipelineState, "Precompiled Pipeline MSAA");
                         }
-
+*/
                         if (pipelineState.pixelShader != nullptr &&
                             pipelineState.pixelShader->shaderCacheEntry != nullptr)
                         {
@@ -8380,7 +7435,7 @@ static std::vector<std::unique_ptr<std::thread>> g_pipelineCompilerThreads = [](
         if (shouldRecompile)
             EnqueuePipelineTask(PipelineTaskType::RecompilePipelines, {});
     }
-
+    /*
     // SWA::CCsdTexListMirage::SetFilter
     PPC_FUNC_IMPL(__imp__sub_825E4300);
     PPC_FUNC(sub_825E4300)
@@ -8397,7 +7452,7 @@ static std::vector<std::unique_ptr<std::thread>> g_pipelineCompilerThreads = [](
         g_csdFilterState = CsdFilterState::Unknown;
         __imp__sub_825E2F78(ctx, base);
     }
-
+    */
     // Game shares surfaces with identical descriptions. We don't want to share shadow maps,
     // so we can set its format to a depth format that still resolves to the same type in recomp,
     // but manages to keep the surfaces actually separated in guest code.
@@ -8490,7 +7545,7 @@ static std::vector<std::unique_ptr<std::thread>> g_pipelineCompilerThreads = [](
     };
 
     static std::vector<uint16_t*> g_newIndicesToFree;
-
+    /*
     // Hedgehog::Mirage::CMeshData::Make
     PPC_FUNC_IMPL(__imp__sub_82E44AF8);
     PPC_FUNC(sub_82E44AF8)
@@ -8546,14 +7601,14 @@ static std::vector<std::unique_ptr<std::thread>> g_pipelineCompilerThreads = [](
 
         g_newIndicesToFree.clear();
     }
-
+    */
     struct LightAndIndexBufferResourceV1
     {
         SWA_INSERT_PADDING(0x4);
         be<uint32_t> indexCount;
         be<uint32_t> indices;
     };
-
+    /*
     // Hedgehog::Mirage::CLightAndIndexBufferData::MakeV1
     PPC_FUNC_IMPL(__imp__sub_82E3AFC8);
     PPC_FUNC(sub_82E3AFC8)
@@ -8592,7 +7647,7 @@ static std::vector<std::unique_ptr<std::thread>> g_pipelineCompilerThreads = [](
         be<uint32_t> indexCount;
         be<uint32_t> indices;
     };
-
+    
     // Hedgehog::Mirage::CLightAndIndexBufferData::MakeV5
     PPC_FUNC_IMPL(__imp__sub_82E3B1C0);
     PPC_FUNC(sub_82E3B1C0)
@@ -8624,9 +7679,12 @@ static std::vector<std::unique_ptr<std::thread>> g_pipelineCompilerThreads = [](
         if (newIndices != nullptr)
             g_userHeap.Free(newIndices);
     }
+    */
+    // UPDATED
+    GUEST_FUNCTION_HOOK(sub_82a42ca0, CreateDevice);
 
-    GUEST_FUNCTION_HOOK(sub_82BD99B0, CreateDevice);
-
+    /*
+    // TO DO
     GUEST_FUNCTION_HOOK(sub_82BE6230, DestructResource);
 
     GUEST_FUNCTION_HOOK(sub_82BE9300, LockTextureRect);

@@ -29,3 +29,15 @@
 [submodule "thirdparty/volk"]
 	path = thirdparty/volk
 	url = https://github.com/zeux/volk/
+[submodule "thirdparty/concurrentqueue"]
+	path = thirdparty/concurrentqueue
+	url = https://github.com/cameron314/concurrentqueue/
+[submodule "thirdparty/ddspp"]
+	path = thirdparty/ddspp
+	url = https://github.com/redorav/ddspp
+[submodule "thirdparty/stb"]
+	path = thirdparty/stb
+	url = https://github.com/nothings/stb/
+[submodule "thirdparty/tomlplusplus"]
+	path = thirdparty/tomlplusplus
+	url = https://github.com/marzer/tomlplusplus/

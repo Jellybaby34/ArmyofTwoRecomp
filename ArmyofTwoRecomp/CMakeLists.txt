@@ -75,12 +75,12 @@ set(ARMYOFTWO_RECOMP_KERNEL_CXX_SOURCES
     "kernel/xam.cpp"
     "kernel/io/file_system.cpp"
 )
-#[[
-set(UNLEASHED_RECOMP_LOCALE_CXX_SOURCES
+
+set(ARMYOFTWO_RECOMP_LOCALE_CXX_SOURCES
     "locale/config_locale.cpp"
     "locale/locale.cpp"
 )
-]]
+
 if (WIN32)
     set(ARMYOFTWO_RECOMP_OS_CXX_SOURCES
         "os/win32/logger_win32.cpp"
@@ -183,7 +183,7 @@ set(UNLEASHED_RECOMP_INSTALL_CXX_SOURCES
 set(ARMYOFTWO_RECOMP_USER_CXX_SOURCES
 ##    "user/achievement_data.cpp"
 ##    "user/achievement_manager.cpp"
-##    "user/config.cpp"
+    "user/config.cpp"
 ##    "user/registry.cpp"
     "user/paths.cpp"
 )
@@ -205,20 +205,20 @@ set(UNLEASHED_RECOMP_THIRDPARTY_SOURCES
     "${UNLEASHED_RECOMP_TOOLS_ROOT}/XenosRecomp/thirdparty/smol-v/source/smolv.cpp"
 )
 ]]
-
+ 
 set(ARMYOFTWO_RECOMP_THIRDPARTY_INCLUDES
-#    "${UNLEASHED_RECOMP_THIRDPARTY_ROOT}/concurrentqueue"
-#    "${UNLEASHED_RECOMP_THIRDPARTY_ROOT}/ddspp"
+    "${ARMYOFTWO_RECOMP_THIRDPARTY_ROOT}/concurrentqueue"
+    "${ARMYOFTWO_RECOMP_THIRDPARTY_ROOT}/ddspp"
 #   "${UNLEASHED_RECOMP_THIRDPARTY_ROOT}/imgui"
 #    "${UNLEASHED_RECOMP_THIRDPARTY_ROOT}/implot"
 #    "${UNLEASHED_RECOMP_THIRDPARTY_ROOT}/json/include"
 #    "${UNLEASHED_RECOMP_THIRDPARTY_ROOT}/magic_enum/include"
-#    "${UNLEASHED_RECOMP_THIRDPARTY_ROOT}/stb"
+    "${ARMYOFTWO_RECOMP_THIRDPARTY_ROOT}/stb"
     "${ARMYOFTWO_RECOMP_THIRDPARTY_ROOT}/unordered_dense/include"
     "${ARMYOFTWO_RECOMP_THIRDPARTY_ROOT}/volk"
     "${ARMYOFTWO_RECOMP_THIRDPARTY_ROOT}/Vulkan-Headers/include"
     "${ARMYOFTWO_RECOMP_THIRDPARTY_ROOT}/VulkanMemoryAllocator/include"
-#    "${UNLEASHED_RECOMP_TOOLS_ROOT}/bc_diff"
+    "${ARMYOFTWO_RECOMP_TOOLS_ROOT}/bc_diff"
 #    "${UNLEASHED_RECOMP_TOOLS_ROOT}/XenosRecomp/thirdparty/smol-v/source"
 )
 #[[
@@ -240,7 +240,7 @@ set(ARMYOFTWO_RECOMP_CXX_SOURCES
     "version.cpp"
     
     ${ARMYOFTWO_RECOMP_KERNEL_CXX_SOURCES}
-##    ${UNLEASHED_RECOMP_LOCALE_CXX_SOURCES}
+    ${ARMYOFTWO_RECOMP_LOCALE_CXX_SOURCES}
     ${ARMYOFTWO_RECOMP_OS_CXX_SOURCES}
     ${ARMYOFTWO_RECOMP_CPU_CXX_SOURCES}
     ${ARMYOFTWO_RECOMP_GPU_CXX_SOURCES}
@@ -368,7 +368,7 @@ target_link_libraries(ArmyofTwoRecomp PRIVATE
     XenonUtils
     SDL2::SDL2-static
 ##    SDL2_mixer
-##    tomlplusplus::tomlplusplus
+    tomlplusplus::tomlplusplus
     ArmyofTwoRecompLib
     xxHash::xxhash
 ##    CURL::libcurl
@@ -376,7 +376,7 @@ target_link_libraries(ArmyofTwoRecomp PRIVATE
 
 target_include_directories(ArmyofTwoRecomp PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
-##    "${CMAKE_CURRENT_SOURCE_DIR}/api"
+    "${CMAKE_CURRENT_SOURCE_DIR}/api"
     ${ARMYOFTWO_RECOMP_THIRDPARTY_INCLUDES}
 )
 #[[
@@ -438,7 +438,7 @@ compile_pixel_shader(resolve_msaa_color_8x)
 compile_pixel_shader(resolve_msaa_depth_2x)
 compile_pixel_shader(resolve_msaa_depth_4x)
 compile_pixel_shader(resolve_msaa_depth_8x)
-
+]]
 function(generate_aggregate_header INPUT_DIRECTORY OUTPUT_FILE)
     get_filename_component(ABS_OUTPUT_FILE "${OUTPUT_FILE}" ABSOLUTE)
     file(GLOB_RECURSE HEADER_FILES "${INPUT_DIRECTORY}/*.h")
@@ -467,7 +467,7 @@ generate_aggregate_header(
     "${CMAKE_CURRENT_SOURCE_DIR}/api"
     "${CMAKE_CURRENT_SOURCE_DIR}/api/SWA.h"
 )
-
+#[[
 set(RESOURCES_SOURCE_PATH "${PROJECT_SOURCE_DIR}/../UnleashedRecompResources")
 set(RESOURCES_OUTPUT_PATH "${PROJECT_SOURCE_DIR}/res")
 

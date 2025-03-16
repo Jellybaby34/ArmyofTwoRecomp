@@ -5,11 +5,11 @@
 const char* g_buildType = "Debug";
 
 const char* g_branchName = "master";
-const char* g_commitHash = "8a6383acce130075be4a3bb51bab8809c5a6cefa";
-const char* g_commitHashShort = "8a6383a";
+const char* g_commitHash = "f615565464f97c2ba7f26700a46be1e70b1f6231";
+const char* g_commitHashShort = "f615565";
 
 const char* g_versionMilestone = "";
 size_t g_versionMajor = 0;
 size_t g_versionMinor = 0;
 size_t g_versionRevision = 1;
-const char* g_versionString = "v0.0.1.8a6383a-master (Debug)";
+const char* g_versionString = "v0.0.1.f615565-master (Debug)";

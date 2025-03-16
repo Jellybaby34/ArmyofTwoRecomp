@@ -26,12 +26,18 @@ using Microsoft::WRL::ComPtr;
 
 #include <xxhash.h>
 #include <ankerl/unordered_dense.h>
+#include <ddspp.h>
 #include <xbox.h>
+#include <stb_image.h>
 #include <ppc/ppc_recomp_shared.h>
+#include <toml++/toml.hpp>
 #include <o1heap.h>
+#include <blockingconcurrentqueue.h>
 #include <SDL.h>
 #include <set>
 #include <fmt/core.h>
+
+#include <numeric>
 
 #include <os/logger.h>
 #include "framework.h"

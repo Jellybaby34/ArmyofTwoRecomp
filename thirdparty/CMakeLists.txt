@@ -8,6 +8,10 @@ if (NOT TARGET xxHash::xxhash)
     add_subdirectory(${ARMYOFTWO_RECOMP_THIRDPARTY_ROOT}/xxHash/cmake_unofficial)
 endif()
 
+if (NOT TARGET tomlplusplus::tomlplusplus)
+    add_subdirectory(${ARMYOFTWO_RECOMP_THIRDPARTY_ROOT}/tomlplusplus)
+endif()
+
 add_subdirectory("${ARMYOFTWO_RECOMP_THIRDPARTY_ROOT}/o1heap")
 add_subdirectory("${ARMYOFTWO_RECOMP_THIRDPARTY_ROOT}/SDL")
 

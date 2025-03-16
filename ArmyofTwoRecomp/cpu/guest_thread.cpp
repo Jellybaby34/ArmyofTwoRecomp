@@ -69,14 +69,15 @@ uint32_t GuestThreadHandle::Wait(uint32_t timeout)
 
 uint32_t GuestThread::Start(const GuestThreadParams& params)
 {
+    LOGF_WARNING("THREAD");
     const auto procMask = (uint8_t)(params.flags >> 24);
     const auto cpuNumber = procMask == 0 ? 0 : 7 - std::countl_zero(procMask);
 
     GuestThreadContext ctx(cpuNumber);
     ctx.ppcContext.r3.u64 = params.value;
-
+    LOGF_WARNING("FIND FUNC {}", params.function);
     g_memory.FindFunction(params.function)(ctx.ppcContext, g_memory.base);
-
+    LOGF_WARNING("AFTER FUNC");
     return ctx.ppcContext.r3.u32;
 }
 

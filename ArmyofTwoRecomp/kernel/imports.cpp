@@ -10,7 +10,7 @@
 #include <memory>
 #include "xam.h"
 #include "xdm.h"
-//#include <user/config.h>
+#include <user/config.h>
 #include <os/logger.h>
 
 #ifdef _WIN32
