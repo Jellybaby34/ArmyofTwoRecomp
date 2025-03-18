@@ -19,7 +19,7 @@ set(ARMYOFTWO_RECOMP_PPC_RECOMPILED_SOURCES
 
 set(XENOS_RECOMP_INCLUDE "${CMAKE_CURRENT_SOURCE_DIR}/shader/shader_cache.h") ## Taken from XenosRecomp
 
-foreach(i RANGE 0 247)
+foreach(i RANGE 0 245)
     list(APPEND ARMYOFTWO_RECOMP_PPC_RECOMPILED_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/ppc/ppc_recomp.${i}.cpp")
 endforeach()
 

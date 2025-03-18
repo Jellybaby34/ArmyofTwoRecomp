@@ -1,0 +1,172 @@
+[main]
+file_path = "default.xex"
+out_directory_path = "./ppc"
+switch_table_file_path = "switch.toml"
+
+restgprlr_14_address = 0x82d5c4e0
+savegprlr_14_address = 0x82d5c490
+restfpr_14_address = 0x82d5c58c
+savefpr_14_address = 0x82d5c540
+restvmx_14_address = 0x82d5d038
+savevmx_14_address = 0x82d5cda0
+savevmx_64_address = 0x82d5d0cc
+restvmx_64_address = 0x82d5ce34
+
+skip_lr = false
+skip_msr = false
+ctr_as_local = false
+xer_as_local = false
+reserved_as_local = false
+cr_as_local = false
+non_argument_as_local = false
+non_volatile_as_local = false
+
+longjmp_address = 0x82D629E0
+setjmp_address = 0x82D62D00
+
+functions = [
+    { address = 0x82216530, size = 0xE0 },
+	{ address = 0x8221f060, size = 0x11C },
+	{ address = 0x82236090, size = 0xF4 },
+	{ address = 0x82236188, size = 0x154 },
+	{ address = 0x8227dd78, size = 0xDC },
+	{ address = 0x8227de58, size = 0x54 },	
+	{ address = 0x8227e940, size = 0x94 },	
+	{ address = 0x822843f8, size = 0xF4 },	
+	{ address = 0x82286770, size = 0xB4 },	
+	{ address = 0x82287518, size = 0x80 },
+	{ address = 0x822dc3f0, size = 0x214 },
+	{ address = 0x8231c3e0, size = 0x70 },
+	{ address = 0x8232a928, size = 0x8F8 },
+	{ address = 0x82331370, size = 0x5C },
+	{ address = 0x82332ac8, size = 0xF8 },
+	{ address = 0x82333a88, size = 0x380 },
+	{ address = 0x8237a438, size = 0x1F4 },
+	{ address = 0x8239a340, size = 0x20C },
+	{ address = 0x8239a6b8, size = 0x68 },
+	{ address = 0x823a2730, size = 0x140 },
+	{ address = 0x823ff4d8, size = 0x348 },
+	{ address = 0x824ea510, size = 0x68 },
+	{ address = 0x824ea6d0, size = 0x88 },
+	{ address = 0x824ea758, size = 0x5C },
+	{ address = 0x824ea7b8, size = 0x190 },
+	{ address = 0x8254ba68, size = 0x9C },
+	{ address = 0x8254bb88, size = 0x6C },
+	{ address = 0x82567d00, size = 0x68 },
+	{ address = 0x8257d278, size = 0x12C },
+	{ address = 0x8257d3a8, size = 0x68 },
+	{ address = 0x8257d658, size = 0xEC },
+	{ address = 0x825a0028, size = 0xD4 },
+	{ address = 0x825a91b8, size = 0xE0 },		
+	{ address = 0x825a9298, size = 0xE0 },	
+	{ address = 0x825a9378, size = 0xE0 },		
+	{ address = 0x82614a88, size = 0xB4 },		
+	{ address = 0x82614c58, size = 0x138 },		
+	{ address = 0x82614f18, size = 0x38C },	
+	{ address = 0x826152a8, size = 0x198 },	
+	{ address = 0x82615440, size = 0xD4 },	
+	{ address = 0x82615568, size = 0x1B0 },	
+	{ address = 0x826157f0, size = 0x278 },	
+	{ address = 0x82615cf8, size = 0x194 },	
+	{ address = 0x82705008, size = 0xA4 },	
+	{ address = 0x8271cff8, size = 0x218 },	
+	{ address = 0x82732628, size = 0x148 },	
+	{ address = 0x827cedb0, size = 0xD4 },	
+	{ address = 0x828a0fd0, size = 0x8C },	
+	{ address = 0x8295ea58, size = 0x80 },	
+	{ address = 0x829d3cd8, size = 0x6C },	
+	{ address = 0x829d3d48, size = 0xBC },	
+	{ address = 0x829d40c0, size = 0x5C },	
+	{ address = 0x829d4120, size = 0x7C },	
+	{ address = 0x829d4258, size = 0x70 },	
+	{ address = 0x829d4a48, size = 0xB0 },	
+	{ address = 0x829d4dd0, size = 0x58 },	
+	{ address = 0x829d4ee0, size = 0x7C },	
+	{ address = 0x829d4f60, size = 0xB8 },	
+	{ address = 0x829d5018, size = 0x98 },	
+	{ address = 0x82a23c98, size = 0x60 },	
+	{ address = 0x82a23cf8, size = 0x58 },	
+	{ address = 0x82a23d50, size = 0x270 },	
+	{ address = 0x82a24c38, size = 0x94 },	
+	{ address = 0x82ab7698, size = 0x110 },	
+	{ address = 0x82b061a8, size = 0x110 },	
+	{ address = 0x82b8eb10, size = 0x454 },	
+	{ address = 0x82be0e68, size = 0x84 },	
+	{ address = 0x82be0ef0, size = 0x7C },	
+	{ address = 0x82be0f70, size = 0x94 },	
+	{ address = 0x82be1008, size = 0x60 },	
+	{ address = 0x82be8740, size = 0x8C },	
+	{ address = 0x82be87d0, size = 0xD0 },	
+	{ address = 0x82bec2f0, size = 0x638 },	
+	{ address = 0x82bed560, size = 0x98 },	
+	{ address = 0x82bed6e8, size = 0x104 },	
+	{ address = 0x82bedc00, size = 0x4AC },	
+	{ address = 0x82bee258, size = 0x2A4 },	
+	{ address = 0x82bee678, size = 0xC8 },	
+	{ address = 0x82beead0, size = 0x2A4 },	
+	{ address = 0x82beeef0, size = 0x80 },	
+	{ address = 0x82bef038, size = 0x104 },	
+	{ address = 0x82bef258, size = 0x1CC },	
+	{ address = 0x82bef650, size = 0x104 },	
+	{ address = 0x82bef870, size = 0xE0 },	
+	{ address = 0x82befad0, size = 0x298 },	
+	{ address = 0x82bf0090, size = 0x104 },	
+	{ address = 0x82bf0448, size = 0x110 },	
+	{ address = 0x82bf0cf0, size = 0xB4 },	
+	{ address = 0x82bf0f48, size = 0x3D0 },	
+	{ address = 0x82bf1620, size = 0x298 },	
+	{ address = 0x82bf1be0, size = 0x8F0 },	
+	{ address = 0x82c00760, size = 0x3D8 },	
+	{ address = 0x82c01158, size = 0xEA0 },
+	{ address = 0x82c020f0, size = 0x5F0 },	
+	{ address = 0x82c0f040, size = 0xF04 },	
+	{ address = 0x82c106d0, size = 0x14A8 },	# Pretty big
+	{ address = 0x82c19970, size = 0x6D8 },	
+	{ address = 0x82c20e40, size = 0x1C8 },	
+	{ address = 0x82c09098, size = 0x34A4 },
+	{ address = 0x82c254b0, size = 0x3B4 },	
+	{ address = 0x82c25f30, size = 0x25A4 },	
+	{ address = 0x82c3c908, size = 0x120 },	
+	{ address = 0x82cbdd38, size = 0xB0 },	
+	{ address = 0x82cc3d18, size = 0x74 },	
+	{ address = 0x82ccfab8, size = 0xA0 },	
+	{ address = 0x82cd4bd8, size = 0xA0 },
+	{ address = 0x82d05610, size = 0x1BC },	
+	{ address = 0x82d0f9b8, size = 0xB0 },	
+	{ address = 0x82d12fa0, size = 0xA0 },	
+	{ address = 0x82d1c2a0, size = 0xA0 },
+	{ address = 0x82d4f9a8, size = 0xD0 },
+	{ address = 0x82d4fa78, size = 0xD0 },
+	{ address = 0x82da2ed0, size = 0x80 },	
+	{ address = 0x82e3ce18, size = 0x78 },	
+	{ address = 0x82e84ca0, size = 0x5B0 },	
+	{ address = 0x82e85250, size = 0x68 },	
+	{ address = 0x82e852b8, size = 0x64 },	
+	{ address = 0x82e85320, size = 0x5C },	
+	{ address = 0x82e85380, size = 0x198 },	
+	{ address = 0x82e85518, size = 0x16C },	
+	{ address = 0x82f93db8, size = 0x1AC },
+	{ address = 0x82ffa4b8, size = 0x1AC },
+	{ address = 0x83029b08, size = 0x60 },	
+    { address = 0x82be6928, size = 0x700 },
+	{ address = 0x82be7080, size = 0xA68 },
+	
+	# THESE ARE FUNCTIONS WITH DOUBLE BRANCH (b 0xXXXXXXXX followed by another b 0xXXXXXXXX) INSTRUCTIONS IN THE MIDDLE
+	# THAT BREAK RECOMPILATION
+	{ address = 0x82d7d2c8, size = 0x28 },
+	{ address = 0x82d7ba48, size = 0x88 },
+	{ address = 0x82d81658, size = 0x7C },
+	{ address = 0x82d85410, size = 0xA4 }
+]
+
+invalid_instructions = [
+    { data = 0x00000000, size = 4 }, # Padding
+#	{ data = 0x48000048, size = 4 }, # ?Padding 2
+#	{ data = 0x48000024, size = 4 }, # ?Padding 3
+#	{ data = 0x48000008, size = 4 }, # ?Padding 3
+	{ data = 0x8308afe4, size = 8 }, # C Specific Frame Handler
+	
+	{ data = 0x82d63f58 , size = 8 }, # Pointer between functions
+
+	{ data = 0x00485645, size = 712 } # End of .text
+]

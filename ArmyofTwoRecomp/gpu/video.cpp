@@ -1037,9 +1037,6 @@ static void SetAlphaTestMode(bool enable)
     uint32_t specConstants = 0;
     bool enableAlphaToCoverage = false;
 
-    LOGF_WARNING("!!! STUB !!!");
-
-/*
     if (enable)
     {
         enableAlphaToCoverage = Config::TransparencyAntiAliasing && g_renderTarget != nullptr && g_renderTarget->sampleCount != RenderSampleCount::COUNT_1;
@@ -1049,7 +1046,7 @@ static void SetAlphaTestMode(bool enable)
         else
             specConstants = SPEC_CONSTANT_ALPHA_TEST;
     }
-*/
+
     specConstants |= (g_pipelineState.specConstants & ~(SPEC_CONSTANT_ALPHA_TEST | SPEC_CONSTANT_ALPHA_TO_COVERAGE));
 
     SetDirtyValue(g_dirtyStates.pipelineState, g_pipelineState.enableAlphaToCoverage, enableAlphaToCoverage);
@@ -1634,11 +1631,10 @@ static void BeginCommandList()
 
     memset(g_textures, 0, sizeof(g_textures));
 
-    LOGF_WARNING("!!! BICUBIC STUB !!!");
-    //    if (Config::GITextureFiltering == EGITextureFiltering::Bicubic)
-    //        g_pipelineState.specConstants |= SPEC_CONSTANT_BICUBIC_GI_FILTER;
-    //    else
-    g_pipelineState.specConstants &= ~SPEC_CONSTANT_BICUBIC_GI_FILTER;
+    if (Config::GITextureFiltering == EGITextureFiltering::Bicubic)
+        g_pipelineState.specConstants |= SPEC_CONSTANT_BICUBIC_GI_FILTER;
+    else
+        g_pipelineState.specConstants &= ~SPEC_CONSTANT_BICUBIC_GI_FILTER;
 
     auto& commandList = g_commandLists[g_frame];
 
@@ -1652,7 +1648,7 @@ static void BeginCommandList()
     commandList->setGraphicsDescriptorSet(g_samplerDescriptorSet.get(), 3);
 }
 
-/*
+
 template<typename T>
 static void ApplyLowEndDefault(ConfigDef<T>& configDef, T newDefault, bool& changed)
 {
@@ -1664,24 +1660,22 @@ static void ApplyLowEndDefault(ConfigDef<T>& configDef, T newDefault, bool& chan
 
     configDef.DefaultValue = newDefault;
 }
-*/
+
 
 static void ApplyLowEndDefaults()
 {
-    LOGF_WARNING("!!! STUB !!!");
-    /*
-        bool changed = false;
 
-        ApplyLowEndDefault(Config::AntiAliasing, EAntiAliasing::MSAA2x, changed);
-        ApplyLowEndDefault(Config::ShadowResolution, EShadowResolution::Original, changed);
-        ApplyLowEndDefault(Config::TransparencyAntiAliasing, false, changed);
-        ApplyLowEndDefault(Config::GITextureFiltering, EGITextureFiltering::Bilinear, changed);
+    bool changed = false;
 
-        if (changed)
-        {
-            Config::Save();
-        }
-    */
+    ApplyLowEndDefault(Config::AntiAliasing, EAntiAliasing::MSAA2x, changed);
+    ApplyLowEndDefault(Config::ShadowResolution, EShadowResolution::Original, changed);
+    ApplyLowEndDefault(Config::TransparencyAntiAliasing, false, changed);
+    ApplyLowEndDefault(Config::GITextureFiltering, EGITextureFiltering::Bilinear, changed);
+
+    if (changed)
+    {
+        Config::Save();
+    }
 }
 
 bool Video::CreateHostDevice(const char* sdlVideoDriver)
@@ -1791,31 +1785,28 @@ bool Video::CreateHostDevice(const char* sdlVideoDriver)
 
     uint32_t bufferCount = 2;
 
-    LOGF_WARNING("!!! TRIPLE BUFFERING STUBBED !!!");
-    /*
-        switch (Config::TripleBuffering)
+    switch (Config::TripleBuffering)
+    {
+    case ETripleBuffering::Auto:
+        if (g_vulkan)
         {
-        case ETripleBuffering::Auto:
-            if (g_vulkan)
-            {
-                // Defaulting to 3 is fine if presentWait as supported, as the maximum frame latency allowed is only 1.
-                bufferCount = g_device->getCapabilities().presentWait ? 3 : 2;
-            }
-            else
-            {
-                // Defaulting to 3 is fine on D3D12 thanks to flip discard model.
-                bufferCount = 3;
-            }
-
-            break;
-        case ETripleBuffering::On:
-            bufferCount = 3;
-            break;
-        case ETripleBuffering::Off:
-            bufferCount = 2;
-            break;
+            // Defaulting to 3 is fine if presentWait as supported, as the maximum frame latency allowed is only 1.
+            bufferCount = g_device->getCapabilities().presentWait ? 3 : 2;
         }
-    */
+        else
+        {
+            // Defaulting to 3 is fine on D3D12 thanks to flip discard model.
+            bufferCount = 3;
+        }
+
+        break;
+    case ETripleBuffering::On:
+        bufferCount = 3;
+        break;
+    case ETripleBuffering::Off:
+        bufferCount = 2;
+        break;
+    }
 
     LOGF_WARNING("!!! MaxFrameLatency STUBBED !!!");
     g_swapChain = g_queue->createSwapChain(GameWindow::s_renderWindow, bufferCount, BACKBUFFER_FORMAT, 2);
@@ -2935,14 +2926,18 @@ static GuestSurface* GetBackBuffer()
     return g_backBuffer;
 }
 
+// AINSLEY - Taken from aspect_ratio_patches.h
+inline float g_aspectRatio;
+inline constexpr float NARROW_ASPECT_RATIO = 4.0f / 3.0f;
+inline constexpr float WIDE_ASPECT_RATIO = 16.0f / 9.0f;
+inline constexpr float STEAM_DECK_ASPECT_RATIO = 16.0f / 10.0f;
+
 void Video::ComputeViewportDimensions()
 {
     uint32_t width = g_swapChain->getWidth();
     uint32_t height = g_swapChain->getHeight();
     float aspectRatio = float(width) / float(height);
 
-    LOGF_WARNING("!!! STUB !!!");
-/*
     switch (Config::AspectRatio)
     {
     case EAspectRatio::Wide:
@@ -2984,8 +2979,7 @@ void Video::ComputeViewportDimensions()
         break;
     }
 
-    AspectRatioPatches::ComputeOffsets();
-*/
+ //   AspectRatioPatches::ComputeOffsets(); // AINSLEY
 }
 
 static RenderFormat ConvertFormat(uint32_t format)
@@ -3111,8 +3105,7 @@ static GuestSurface* CreateSurface(uint32_t width, uint32_t height, uint32_t for
     desc.depth = 1;
     desc.mipLevels = 1;
     desc.arraySize = 1;
-    desc.multisampling.sampleCount = RenderSampleCount::COUNT_1;
-//    desc.multisampling.sampleCount = multiSample != 0 && Config::AntiAliasing != EAntiAliasing::None ? int32_t(Config::AntiAliasing.Value) : RenderSampleCount::COUNT_1;
+    desc.multisampling.sampleCount = multiSample != 0 && Config::AntiAliasing != EAntiAliasing::None ? int32_t(Config::AntiAliasing.Value) : RenderSampleCount::COUNT_1;
     desc.format = ConvertFormat(format);
     desc.flags = desc.format == RenderFormat::D32_FLOAT ? RenderTextureFlag::DEPTH_TARGET : RenderTextureFlag::RENDER_TARGET;
 
@@ -3674,7 +3667,6 @@ static void ProcSetViewport(const RenderCommand& cmd)
 
 static void SetTexture(GuestDevice* device, uint32_t index, GuestTexture* texture)
 {
-/*
     auto isPlayStation = Config::ControllerIcons == EControllerIcons::PlayStation;
 
     if (Config::ControllerIcons == EControllerIcons::Auto)
@@ -3682,7 +3674,7 @@ static void SetTexture(GuestDevice* device, uint32_t index, GuestTexture* textur
 
     if (isPlayStation && texture != nullptr && texture->patchedTexture != nullptr)
         texture = texture->patchedTexture.get();
-*/
+
     RenderCommand cmd;
     cmd.type = RenderCommandType::SetTexture;
     cmd.setTexture.index = index;
@@ -4291,13 +4283,12 @@ static void ProcSetSamplerState(const RenderCommand& cmd)
     auto mipFilter = ConvertTextureFilter((args.data3 >> 23) & 0x3);
     const auto borderColor = ConvertBorderColor(args.data5 & 0x3);
 
-    bool anisotropyEnabled = true;
-//    bool anisotropyEnabled = Config::AnisotropicFiltering > 0 && mipFilter == RenderFilter::LINEAR;
-//    if (anisotropyEnabled)
-//    {
+    bool anisotropyEnabled = Config::AnisotropicFiltering > 0 && mipFilter == RenderFilter::LINEAR;
+    if (anisotropyEnabled)
+    {
         magFilter = RenderFilter::LINEAR;
         minFilter = RenderFilter::LINEAR;
-//    }
+    }
 
     auto& samplerDesc = g_samplerDescs[args.index];
 
@@ -5095,7 +5086,8 @@ static void ProcSetPixelShader(const RenderCommand& cmd)
     if (shader != nullptr &&
         shader->shaderCacheEntry != nullptr)
     {
- /*       if (shader->shaderCacheEntry->hash == 0x4294510C775F4EE8)
+
+        if (shader->shaderCacheEntry->hash == 0x4294510C775F4EE8)
         {
             size_t shaderIndex = GAUSSIAN_BLUR_3X3;
 
@@ -5157,7 +5149,7 @@ static void ProcSetPixelShader(const RenderCommand& cmd)
         {
             shader = g_enhancedMotionBlurShader.get();
         }
-*/    }
+    }
 
     SetDirtyValue(g_dirtyStates.pipelineState, g_pipelineState.pixelShader, shader);
 }
@@ -5765,14 +5757,14 @@ static void MakePictureData(GuestPictureData* pictureData, uint8_t* data, uint32
 static void SetResolution(be<uint32_t>* device)
 {
     LOGF_WARNING("!!! STUB !!!");
-/*
+
     Video::ComputeViewportDimensions();
 
     uint32_t width = uint32_t(round(Video::s_viewportWidth * Config::ResolutionScale));
     uint32_t height = uint32_t(round(Video::s_viewportHeight * Config::ResolutionScale));
     device[46] = width == 0 ? 880 : width;
     device[47] = height == 0 ? 720 : height;
-*/
+
 }
 
 // The game does some weird stuff to render targets if they are above 
@@ -5817,6 +5809,7 @@ static void ScreenShaderInit(be<uint32_t>* a1, uint32_t a2, uint32_t a3, GuestVe
     a1[3] = g_memory.MapVirtual(g_movieVertexShader);
     a1[4] = g_memory.MapVirtual(g_movieVertexDeclaration);
 */
+
 }
 
 void MovieRendererMidAsmHook(PPCRegister& r3)
@@ -6517,26 +6510,26 @@ static std::vector<std::unique_ptr<std::thread>> g_pipelineCompilerThreads = [](
 
                 pipelineState.renderTargetFormat = RenderFormat::R16G16B16A16_FLOAT;
                 pipelineState.depthStencilFormat = RenderFormat::D32_FLOAT;
-//                pipelineState.sampleCount = Config::AntiAliasing != EAntiAliasing::None ? int32_t(Config::AntiAliasing.Value) : 1; // AINSLEY
+                pipelineState.sampleCount = Config::AntiAliasing != EAntiAliasing::None ? int32_t(Config::AntiAliasing.Value) : 1;
                 pipelineState.sampleCount = 1;
 
                 if (pipelineState.vertexDeclaration->hasR11G11B10Normal)
                     pipelineState.specConstants |= SPEC_CONSTANT_R11G11B10_NORMAL;
 
-//                if (Config::GITextureFiltering == EGITextureFiltering::Bicubic)
+                if (Config::GITextureFiltering == EGITextureFiltering::Bicubic)
                     pipelineState.specConstants |= SPEC_CONSTANT_BICUBIC_GI_FILTER;
 
                 if (mesh.layer == MeshLayer::PunchThrough)
                 {
-//                    if (Config::AntiAliasing != EAntiAliasing::None && Config::TransparencyAntiAliasing)
-//                    {
-//                        pipelineState.enableAlphaToCoverage = true;
-//                        pipelineState.specConstants |= SPEC_CONSTANT_ALPHA_TO_COVERAGE;
-//                    }
-//                    else
-//                    {
+                    if (Config::AntiAliasing != EAntiAliasing::None && Config::TransparencyAntiAliasing)
+                    {
+                        pipelineState.enableAlphaToCoverage = true;
+                        pipelineState.specConstants |= SPEC_CONSTANT_ALPHA_TO_COVERAGE;
+                    }
+                    else
+                    {
                         pipelineState.specConstants |= SPEC_CONSTANT_ALPHA_TEST;
-//                    }
+                    }
                 }
 
                 if (!isSky)
@@ -6788,7 +6781,7 @@ static std::vector<std::unique_ptr<std::thread>> g_pipelineCompilerThreads = [](
                 pipelineState.renderTargetFormat = renderTargetFormat;
 
                 if (renderTargetFormat == RenderFormat::R16G16B16A16_FLOAT)
-                    pipelineState.sampleCount = 1; // AINSLEY // pipelineState.sampleCount = Config::AntiAliasing != EAntiAliasing::None ? int32_t(Config::AntiAliasing.Value) : 1;
+                    pipelineState.sampleCount = Config::AntiAliasing != EAntiAliasing::None ? int32_t(Config::AntiAliasing.Value) : 1;
 
                 else
                     pipelineState.sampleCount = 1;
@@ -7132,7 +7125,7 @@ static std::vector<std::unique_ptr<std::thread>> g_pipelineCompilerThreads = [](
                             pipelineState.slopeScaledDepthBias = 0.0f;
                         }
 
-//                        if (Config::GITextureFiltering == EGITextureFiltering::Bicubic) // AINSLEY
+                        if (Config::GITextureFiltering == EGITextureFiltering::Bicubic)
                             pipelineState.specConstants |= SPEC_CONSTANT_BICUBIC_GI_FILTER;
 
                         auto createGraphicsPipeline = [&](PipelineState& pipelineStateToCreate, const char* name)
@@ -7140,7 +7133,7 @@ static std::vector<std::unique_ptr<std::thread>> g_pipelineCompilerThreads = [](
                                 SanitizePipelineState(pipelineStateToCreate);
                                 EnqueueGraphicsPipelineCompilation(pipelineStateToCreate, tokenPair, name, true);
                             };
-/* AINSLEY
+
                         // Compile both MSAA and non MSAA variants to work with reflection maps. The render formats are an assumption but it should hold true.
                         if (Config::AntiAliasing != EAntiAliasing::None &&
                             pipelineState.renderTargetFormat == RenderFormat::R16G16B16A16_FLOAT &&
@@ -7158,7 +7151,7 @@ static std::vector<std::unique_ptr<std::thread>> g_pipelineCompilerThreads = [](
 
                             createGraphicsPipeline(msaaPipelineState, "Precompiled Pipeline MSAA");
                         }
-*/
+
                         if (pipelineState.pixelShader != nullptr &&
                             pipelineState.pixelShader->shaderCacheEntry != nullptr)
                         {
@@ -7414,27 +7407,27 @@ static std::vector<std::unique_ptr<std::thread>> g_pipelineCompilerThreads = [](
     SDLEventListenerForPSOCaching g_sdlEventListenerForPSOCaching;
 #endif
 
-    void VideoConfigValueChangedCallback(IConfigDef* config)
-    {
-        // Config options that require internal resolution resize
-        g_needsResize |=
-            config == &Config::AspectRatio ||
-            config == &Config::ResolutionScale ||
-            config == &Config::AntiAliasing ||
-            config == &Config::ShadowResolution;
+void VideoConfigValueChangedCallback(IConfigDef* config)
+{
+    // Config options that require internal resolution resize
+    g_needsResize |=
+        config == &Config::AspectRatio ||
+        config == &Config::ResolutionScale ||
+        config == &Config::AntiAliasing ||
+        config == &Config::ShadowResolution;
 
-        if (g_needsResize)
-            Video::ComputeViewportDimensions();
+    if (g_needsResize)
+        Video::ComputeViewportDimensions();
 
-        // Config options that require pipeline recompilation
-        bool shouldRecompile =
-            config == &Config::AntiAliasing ||
-            config == &Config::TransparencyAntiAliasing ||
-            config == &Config::GITextureFiltering;
+    // Config options that require pipeline recompilation
+    bool shouldRecompile =
+        config == &Config::AntiAliasing ||
+        config == &Config::TransparencyAntiAliasing ||
+        config == &Config::GITextureFiltering;
 
-        if (shouldRecompile)
-            EnqueuePipelineTask(PipelineTaskType::RecompilePipelines, {});
-    }
+    if (shouldRecompile)
+        EnqueuePipelineTask(PipelineTaskType::RecompilePipelines, {});
+}
     /*
     // SWA::CCsdTexListMirage::SetFilter
     PPC_FUNC_IMPL(__imp__sub_825E4300);
@@ -7456,316 +7449,323 @@ static std::vector<std::unique_ptr<std::thread>> g_pipelineCompilerThreads = [](
     // Game shares surfaces with identical descriptions. We don't want to share shadow maps,
     // so we can set its format to a depth format that still resolves to the same type in recomp,
     // but manages to keep the surfaces actually separated in guest code.
-    void FxShadowMapInitMidAsmHook(PPCRegister& r11)
-    {
-        uint8_t* base = g_memory.base;
+void FxShadowMapInitMidAsmHook(PPCRegister& r11)
+{
+    uint8_t* base = g_memory.base;
 
-        uint32_t surface = PPC_LOAD_U32(PPC_LOAD_U32(PPC_LOAD_U32(r11.u32 + 0x24) + 0x4));
-        PPC_STORE_U32(surface + 0x20, D3DFMT_D24FS8);
+    uint32_t surface = PPC_LOAD_U32(PPC_LOAD_U32(PPC_LOAD_U32(r11.u32 + 0x24) + 0x4));
+    PPC_STORE_U32(surface + 0x20, D3DFMT_D24FS8);
+}
+
+// Re-render objects in the terrain shadow map instead of copying the texture.
+static bool g_jumpOverStretchRect;
+
+void FxShadowMapNoTerrainMidAsmHook(PPCRegister& r4, PPCRegister& r30)
+{
+    // Set the no terrain shadow map as the render target.
+    uint8_t* base = g_memory.base;
+    r4.u64 = PPC_LOAD_U32(r30.u32 + 0x58);
+}
+
+bool FxShadowMapMidAsmHook(PPCRegister& r4, PPCRegister& r5, PPCRegister& r6, PPCRegister& r30)
+{
+    if (g_jumpOverStretchRect)
+    {
+        // Reset for the next time shadow maps get rendered.
+        g_jumpOverStretchRect = false;
+
+        // Jump over the stretch rect call.
+        return false;
     }
-
-    // Re-render objects in the terrain shadow map instead of copying the texture.
-    static bool g_jumpOverStretchRect;
-
-    void FxShadowMapNoTerrainMidAsmHook(PPCRegister& r4, PPCRegister& r30)
+    else
     {
-        // Set the no terrain shadow map as the render target.
+        // Mark to jump over the stretch call the next time.
+        g_jumpOverStretchRect = true;
+
+        // Jump to the beginning. Set registers accordingly to set the terrain shadow map as the render target.
         uint8_t* base = g_memory.base;
-        r4.u64 = PPC_LOAD_U32(r30.u32 + 0x58);
-    }
+        r6.u64 = 0;
+        r5.u64 = 0;
+        r4.u64 = PPC_LOAD_U32(r30.u32 + 0x50);
 
-    bool FxShadowMapMidAsmHook(PPCRegister& r4, PPCRegister& r5, PPCRegister& r6, PPCRegister& r30)
+        return true;
+    }
+}
+
+// There is a bug on AMD where restart indices cause incorrect culling and prevent some triangles from being rendered.
+// This seems to happen on both Windows AMD drivers and Mesa. Converting restart indices to degenerate triangles fixes it.
+static void ConvertToDegenerateTriangles(uint16_t* indices, uint32_t indexCount, uint16_t*& newIndices, uint32_t& newIndexCount)
+{
+    newIndices = reinterpret_cast<uint16_t*>(g_userHeap.Alloc(indexCount * sizeof(uint16_t) * 3));
+    newIndexCount = 0;
+
+    bool stripStart = true;
+    uint32_t stripSize = 0;
+    uint16_t lastIndex = 0;
+
+    for (uint32_t i = 0; i < indexCount; i++)
     {
-        if (g_jumpOverStretchRect)
+        uint16_t index = indices[i];
+        if (index == 0xFFFF)
         {
-            // Reset for the next time shadow maps get rendered.
-            g_jumpOverStretchRect = false;
+            if ((stripSize % 2) != 0)
+                newIndices[newIndexCount++] = lastIndex;
 
-            // Jump over the stretch rect call.
-            return false;
+            stripStart = true;
+            stripSize = 0;
         }
         else
         {
-            // Mark to jump over the stretch call the next time.
-            g_jumpOverStretchRect = true;
+            if (stripStart && newIndexCount != 0)
+            {
+                newIndices[newIndexCount++] = lastIndex;
+                newIndices[newIndexCount++] = index;
+            }
 
-            // Jump to the beginning. Set registers accordingly to set the terrain shadow map as the render target.
-            uint8_t* base = g_memory.base;
-            r6.u64 = 0;
-            r5.u64 = 0;
-            r4.u64 = PPC_LOAD_U32(r30.u32 + 0x50);
-
-            return true;
+            newIndices[newIndexCount++] = index;
+            stripStart = false;
+            ++stripSize;
+            lastIndex = index;
         }
     }
+}
 
-    // There is a bug on AMD where restart indices cause incorrect culling and prevent some triangles from being rendered.
-    // This seems to happen on both Windows AMD drivers and Mesa. Converting restart indices to degenerate triangles fixes it.
-    static void ConvertToDegenerateTriangles(uint16_t* indices, uint32_t indexCount, uint16_t*& newIndices, uint32_t& newIndexCount)
+struct MeshResource
+{
+    SWA_INSERT_PADDING(0x4);
+    be<uint32_t> indexCount;
+    be<uint32_t> indices;
+};
+
+static std::vector<uint16_t*> g_newIndicesToFree;
+
+/*
+
+// Hedgehog::Mirage::CMeshData::Make
+PPC_FUNC_IMPL(__imp__sub_82E44AF8);
+PPC_FUNC(sub_82E44AF8)
+{
+    uint16_t* newIndicesToFree = nullptr;
+
+    auto databaseData = reinterpret_cast<Hedgehog::Database::CDatabaseData*>(base + ctx.r3.u32);
+    if (g_triangleStripWorkaround && !databaseData->IsMadeOne())
     {
-        newIndices = reinterpret_cast<uint16_t*>(g_userHeap.Alloc(indexCount * sizeof(uint16_t) * 3));
-        newIndexCount = 0;
+        auto meshResource = reinterpret_cast<MeshResource*>(base + ctx.r4.u32);
 
-        bool stripStart = true;
-        uint32_t stripSize = 0;
-        uint16_t lastIndex = 0;
-
-        for (uint32_t i = 0; i < indexCount; i++)
+        if (meshResource->indexCount != 0)
         {
-            uint16_t index = indices[i];
-            if (index == 0xFFFF)
-            {
-                if ((stripSize % 2) != 0)
-                    newIndices[newIndexCount++] = lastIndex;
+            uint16_t* newIndices;
+            uint32_t newIndexCount;
 
-                stripStart = true;
-                stripSize = 0;
+            ConvertToDegenerateTriangles(
+                reinterpret_cast<uint16_t*>(base + meshResource->indices),
+                meshResource->indexCount,
+                newIndices,
+                newIndexCount);
+
+            meshResource->indexCount = newIndexCount;
+            meshResource->indices = static_cast<uint32_t>(reinterpret_cast<uint8_t*>(newIndices) - base);
+
+            if (PPC_LOAD_U32(0x83396E98) != NULL)
+            {
+                // If index buffers are getting merged, new indices need to survive until the merge happens.
+                g_newIndicesToFree.push_back(newIndices);
             }
             else
             {
-                if (stripStart && newIndexCount != 0)
-                {
-                    newIndices[newIndexCount++] = lastIndex;
-                    newIndices[newIndexCount++] = index;
-                }
-
-                newIndices[newIndexCount++] = index;
-                stripStart = false;
-                ++stripSize;
-                lastIndex = index;
+                // Otherwise, we can free it immediately.
+                newIndicesToFree = newIndices;
             }
         }
     }
 
-    struct MeshResource
-    {
-        SWA_INSERT_PADDING(0x4);
-        be<uint32_t> indexCount;
-        be<uint32_t> indices;
-    };
+    __imp__sub_82E44AF8(ctx, base);
 
-    static std::vector<uint16_t*> g_newIndicesToFree;
-    /*
-    // Hedgehog::Mirage::CMeshData::Make
-    PPC_FUNC_IMPL(__imp__sub_82E44AF8);
-    PPC_FUNC(sub_82E44AF8)
-    {
-        uint16_t* newIndicesToFree = nullptr;
+    if (newIndicesToFree != nullptr)
+        g_userHeap.Free(newIndicesToFree);
+}
 
-        auto databaseData = reinterpret_cast<Hedgehog::Database::CDatabaseData*>(base + ctx.r3.u32);
-        if (g_triangleStripWorkaround && !databaseData->IsMadeOne())
+// Hedgehog::Mirage::CShareVertexBuffer::Reset
+PPC_FUNC_IMPL(__imp__sub_82E250D0);
+PPC_FUNC(sub_82E250D0)
+{
+    __imp__sub_82E250D0(ctx, base);
+
+    for (auto newIndicesToFree : g_newIndicesToFree)
+        g_userHeap.Free(newIndicesToFree);
+
+    g_newIndicesToFree.clear();
+}
+*/
+
+struct LightAndIndexBufferResourceV1
+{
+    SWA_INSERT_PADDING(0x4);
+    be<uint32_t> indexCount;
+    be<uint32_t> indices;
+};
+
+/*
+
+// Hedgehog::Mirage::CLightAndIndexBufferData::MakeV1
+PPC_FUNC_IMPL(__imp__sub_82E3AFC8);
+PPC_FUNC(sub_82E3AFC8)
+{
+    uint16_t* newIndices = nullptr;
+
+    auto databaseData = reinterpret_cast<Hedgehog::Database::CDatabaseData*>(base + ctx.r3.u32);
+    if (g_triangleStripWorkaround && !databaseData->IsMadeOne())
+    {
+        auto lightAndIndexBufferResource = reinterpret_cast<LightAndIndexBufferResourceV1*>(base + ctx.r4.u32);
+
+        if (lightAndIndexBufferResource->indexCount != 0)
         {
-            auto meshResource = reinterpret_cast<MeshResource*>(base + ctx.r4.u32);
+            uint32_t newIndexCount;
 
-            if (meshResource->indexCount != 0)
-            {
-                uint16_t* newIndices;
-                uint32_t newIndexCount;
+            ConvertToDegenerateTriangles(
+                reinterpret_cast<uint16_t*>(base + lightAndIndexBufferResource->indices),
+                lightAndIndexBufferResource->indexCount,
+                newIndices,
+                newIndexCount);
 
-                ConvertToDegenerateTriangles(
-                    reinterpret_cast<uint16_t*>(base + meshResource->indices),
-                    meshResource->indexCount,
-                    newIndices,
-                    newIndexCount);
-
-                meshResource->indexCount = newIndexCount;
-                meshResource->indices = static_cast<uint32_t>(reinterpret_cast<uint8_t*>(newIndices) - base);
-
-                if (PPC_LOAD_U32(0x83396E98) != NULL)
-                {
-                    // If index buffers are getting merged, new indices need to survive until the merge happens.
-                    g_newIndicesToFree.push_back(newIndices);
-                }
-                else
-                {
-                    // Otherwise, we can free it immediately.
-                    newIndicesToFree = newIndices;
-                }
-            }
+            lightAndIndexBufferResource->indexCount = newIndexCount;
+            lightAndIndexBufferResource->indices = static_cast<uint32_t>(reinterpret_cast<uint8_t*>(newIndices) - base);
         }
-
-        __imp__sub_82E44AF8(ctx, base);
-
-        if (newIndicesToFree != nullptr)
-            g_userHeap.Free(newIndicesToFree);
     }
 
-    // Hedgehog::Mirage::CShareVertexBuffer::Reset
-    PPC_FUNC_IMPL(__imp__sub_82E250D0);
-    PPC_FUNC(sub_82E250D0)
-    {
-        __imp__sub_82E250D0(ctx, base);
+    __imp__sub_82E3AFC8(ctx, base);
 
-        for (auto newIndicesToFree : g_newIndicesToFree)
-            g_userHeap.Free(newIndicesToFree);
+    if (newIndices != nullptr)
+        g_userHeap.Free(newIndices);
+}
 
-        g_newIndicesToFree.clear();
-    }
-    */
-    struct LightAndIndexBufferResourceV1
-    {
-        SWA_INSERT_PADDING(0x4);
-        be<uint32_t> indexCount;
-        be<uint32_t> indices;
-    };
-    /*
-    // Hedgehog::Mirage::CLightAndIndexBufferData::MakeV1
-    PPC_FUNC_IMPL(__imp__sub_82E3AFC8);
-    PPC_FUNC(sub_82E3AFC8)
-    {
-        uint16_t* newIndices = nullptr;
-
-        auto databaseData = reinterpret_cast<Hedgehog::Database::CDatabaseData*>(base + ctx.r3.u32);
-        if (g_triangleStripWorkaround && !databaseData->IsMadeOne())
-        {
-            auto lightAndIndexBufferResource = reinterpret_cast<LightAndIndexBufferResourceV1*>(base + ctx.r4.u32);
-
-            if (lightAndIndexBufferResource->indexCount != 0)
-            {
-                uint32_t newIndexCount;
-
-                ConvertToDegenerateTriangles(
-                    reinterpret_cast<uint16_t*>(base + lightAndIndexBufferResource->indices),
-                    lightAndIndexBufferResource->indexCount,
-                    newIndices,
-                    newIndexCount);
-
-                lightAndIndexBufferResource->indexCount = newIndexCount;
-                lightAndIndexBufferResource->indices = static_cast<uint32_t>(reinterpret_cast<uint8_t*>(newIndices) - base);
-            }
-        }
-
-        __imp__sub_82E3AFC8(ctx, base);
-
-        if (newIndices != nullptr)
-            g_userHeap.Free(newIndices);
-    }
-
-    struct LightAndIndexBufferResourceV5
-    {
-        SWA_INSERT_PADDING(0x8);
-        be<uint32_t> indexCount;
-        be<uint32_t> indices;
-    };
+struct LightAndIndexBufferResourceV5
+{
+    SWA_INSERT_PADDING(0x8);
+    be<uint32_t> indexCount;
+    be<uint32_t> indices;
+};
     
-    // Hedgehog::Mirage::CLightAndIndexBufferData::MakeV5
-    PPC_FUNC_IMPL(__imp__sub_82E3B1C0);
-    PPC_FUNC(sub_82E3B1C0)
+// Hedgehog::Mirage::CLightAndIndexBufferData::MakeV5
+PPC_FUNC_IMPL(__imp__sub_82E3B1C0);
+PPC_FUNC(sub_82E3B1C0)
+{
+    uint16_t* newIndices = nullptr;
+
+    auto databaseData = reinterpret_cast<Hedgehog::Database::CDatabaseData*>(base + ctx.r3.u32);
+    if (g_triangleStripWorkaround && !databaseData->IsMadeOne())
     {
-        uint16_t* newIndices = nullptr;
+        auto lightAndIndexBufferResource = reinterpret_cast<LightAndIndexBufferResourceV5*>(base + ctx.r4.u32);
 
-        auto databaseData = reinterpret_cast<Hedgehog::Database::CDatabaseData*>(base + ctx.r3.u32);
-        if (g_triangleStripWorkaround && !databaseData->IsMadeOne())
+        if (lightAndIndexBufferResource->indexCount != 0)
         {
-            auto lightAndIndexBufferResource = reinterpret_cast<LightAndIndexBufferResourceV5*>(base + ctx.r4.u32);
+            uint32_t newIndexCount;
 
-            if (lightAndIndexBufferResource->indexCount != 0)
-            {
-                uint32_t newIndexCount;
+            ConvertToDegenerateTriangles(
+                reinterpret_cast<uint16_t*>(base + lightAndIndexBufferResource->indices),
+                lightAndIndexBufferResource->indexCount,
+                newIndices,
+                newIndexCount);
 
-                ConvertToDegenerateTriangles(
-                    reinterpret_cast<uint16_t*>(base + lightAndIndexBufferResource->indices),
-                    lightAndIndexBufferResource->indexCount,
-                    newIndices,
-                    newIndexCount);
-
-                lightAndIndexBufferResource->indexCount = newIndexCount;
-                lightAndIndexBufferResource->indices = static_cast<uint32_t>(reinterpret_cast<uint8_t*>(newIndices) - base);
-            }
+            lightAndIndexBufferResource->indexCount = newIndexCount;
+            lightAndIndexBufferResource->indices = static_cast<uint32_t>(reinterpret_cast<uint8_t*>(newIndices) - base);
         }
-
-        __imp__sub_82E3B1C0(ctx, base);
-
-        if (newIndices != nullptr)
-            g_userHeap.Free(newIndices);
     }
-    */
-    // UPDATED
-    GUEST_FUNCTION_HOOK(sub_82a42ca0, CreateDevice);
 
-    /*
-    // TO DO
-    GUEST_FUNCTION_HOOK(sub_82BE6230, DestructResource);
+    __imp__sub_82E3B1C0(ctx, base);
 
-    GUEST_FUNCTION_HOOK(sub_82BE9300, LockTextureRect);
-    GUEST_FUNCTION_HOOK(sub_82BE7780, UnlockTextureRect);
+    if (newIndices != nullptr)
+        g_userHeap.Free(newIndices);
+}
+*/
 
-    GUEST_FUNCTION_HOOK(sub_82BE6B98, LockVertexBuffer);
-    GUEST_FUNCTION_HOOK(sub_82BE6BE8, UnlockVertexBuffer);
-    GUEST_FUNCTION_HOOK(sub_82BE61D0, GetVertexBufferDesc);
+// UPDATED
+//GUEST_FUNCTION_HOOK(sub_82a42ca0, CreateDevice);
 
-    GUEST_FUNCTION_HOOK(sub_82BE6CA8, LockIndexBuffer);
-    GUEST_FUNCTION_HOOK(sub_82BE6CF0, UnlockIndexBuffer);
-    GUEST_FUNCTION_HOOK(sub_82BE6200, GetIndexBufferDesc);
+//GUEST_FUNCTION_HOOK(sub_82257950, Video::Present); // AINSLEY NEEDS CHECKING
+/*
+// TO DO
+GUEST_FUNCTION_HOOK(sub_82BE6230, DestructResource);
 
-    GUEST_FUNCTION_HOOK(sub_82BE96F0, GetSurfaceDesc);
+GUEST_FUNCTION_HOOK(sub_82BE9300, LockTextureRect);
+GUEST_FUNCTION_HOOK(sub_82BE7780, UnlockTextureRect);
 
-    GUEST_FUNCTION_HOOK(sub_82BE04B0, GetVertexDeclaration);
-    GUEST_FUNCTION_HOOK(sub_82BE0530, HashVertexDeclaration);
+GUEST_FUNCTION_HOOK(sub_82BE6B98, LockVertexBuffer);
+GUEST_FUNCTION_HOOK(sub_82BE6BE8, UnlockVertexBuffer);
+GUEST_FUNCTION_HOOK(sub_82BE61D0, GetVertexBufferDesc);
 
-    GUEST_FUNCTION_HOOK(sub_82BDA8C0, Video::Present);
-    GUEST_FUNCTION_HOOK(sub_82BDD330, GetBackBuffer);
+GUEST_FUNCTION_HOOK(sub_82BE6CA8, LockIndexBuffer);
+GUEST_FUNCTION_HOOK(sub_82BE6CF0, UnlockIndexBuffer);
+GUEST_FUNCTION_HOOK(sub_82BE6200, GetIndexBufferDesc);
 
-    GUEST_FUNCTION_HOOK(sub_82BE9498, CreateTexture);
-    GUEST_FUNCTION_HOOK(sub_82BE6AD0, CreateVertexBuffer);
-    GUEST_FUNCTION_HOOK(sub_82BE6BF8, CreateIndexBuffer);
-    GUEST_FUNCTION_HOOK(sub_82BE95B8, CreateSurface);
+GUEST_FUNCTION_HOOK(sub_82BE96F0, GetSurfaceDesc);
 
-    GUEST_FUNCTION_HOOK(sub_82BF6400, StretchRect);
+GUEST_FUNCTION_HOOK(sub_82BE04B0, GetVertexDeclaration);
+GUEST_FUNCTION_HOOK(sub_82BE0530, HashVertexDeclaration);
 
-    GUEST_FUNCTION_HOOK(sub_82BDD9F0, SetRenderTarget);
-    GUEST_FUNCTION_HOOK(sub_82BDDD38, SetDepthStencilSurface);
+GUEST_FUNCTION_HOOK(sub_82BDA8C0, Video::Present);
+GUEST_FUNCTION_HOOK(sub_82BDD330, GetBackBuffer);
 
-    GUEST_FUNCTION_HOOK(sub_82BFE4C8, Clear);
+GUEST_FUNCTION_HOOK(sub_82BE9498, CreateTexture);
+GUEST_FUNCTION_HOOK(sub_82BE6AD0, CreateVertexBuffer);
+GUEST_FUNCTION_HOOK(sub_82BE6BF8, CreateIndexBuffer);
+GUEST_FUNCTION_HOOK(sub_82BE95B8, CreateSurface);
 
-    GUEST_FUNCTION_HOOK(sub_82BDD8C0, SetViewport);
+GUEST_FUNCTION_HOOK(sub_82BF6400, StretchRect);
 
-    GUEST_FUNCTION_HOOK(sub_82BE9818, SetTexture);
-    GUEST_FUNCTION_HOOK(sub_82BDCFB0, SetScissorRect);
+GUEST_FUNCTION_HOOK(sub_82BDD9F0, SetRenderTarget);
+GUEST_FUNCTION_HOOK(sub_82BDDD38, SetDepthStencilSurface);
 
-    GUEST_FUNCTION_HOOK(sub_82BE5900, DrawPrimitive);
-    GUEST_FUNCTION_HOOK(sub_82BE5CF0, DrawIndexedPrimitive);
-    GUEST_FUNCTION_HOOK(sub_82BE52F8, DrawPrimitiveUP);
+GUEST_FUNCTION_HOOK(sub_82BFE4C8, Clear);
 
-    GUEST_FUNCTION_HOOK(sub_82BE0428, CreateVertexDeclaration);
-    GUEST_FUNCTION_HOOK(sub_82BE02E0, SetVertexDeclaration);
+GUEST_FUNCTION_HOOK(sub_82BDD8C0, SetViewport);
 
-    GUEST_FUNCTION_HOOK(sub_82BE1A80, CreateVertexShader);
-    GUEST_FUNCTION_HOOK(sub_82BE0110, SetVertexShader);
+GUEST_FUNCTION_HOOK(sub_82BE9818, SetTexture);
+GUEST_FUNCTION_HOOK(sub_82BDCFB0, SetScissorRect);
 
-    GUEST_FUNCTION_HOOK(sub_82BDD0F8, SetStreamSource);
-    GUEST_FUNCTION_HOOK(sub_82BDD218, SetIndices);
+GUEST_FUNCTION_HOOK(sub_82BE5900, DrawPrimitive);
+GUEST_FUNCTION_HOOK(sub_82BE5CF0, DrawIndexedPrimitive);
+GUEST_FUNCTION_HOOK(sub_82BE52F8, DrawPrimitiveUP);
 
-    GUEST_FUNCTION_HOOK(sub_82BE1990, CreatePixelShader);
-    GUEST_FUNCTION_HOOK(sub_82BDFE58, SetPixelShader);
+GUEST_FUNCTION_HOOK(sub_82BE0428, CreateVertexDeclaration);
+GUEST_FUNCTION_HOOK(sub_82BE02E0, SetVertexDeclaration);
 
-    GUEST_FUNCTION_HOOK(sub_82C003B8, D3DXFillTexture);
-    GUEST_FUNCTION_HOOK(sub_82C00910, D3DXFillVolumeTexture);
+GUEST_FUNCTION_HOOK(sub_82BE1A80, CreateVertexShader);
+GUEST_FUNCTION_HOOK(sub_82BE0110, SetVertexShader);
 
-    GUEST_FUNCTION_HOOK(sub_82E43FC8, MakePictureData);
+GUEST_FUNCTION_HOOK(sub_82BDD0F8, SetStreamSource);
+GUEST_FUNCTION_HOOK(sub_82BDD218, SetIndices);
 
-    GUEST_FUNCTION_HOOK(sub_82E9EE38, SetResolution);
+GUEST_FUNCTION_HOOK(sub_82BE1990, CreatePixelShader);
+GUEST_FUNCTION_HOOK(sub_82BDFE58, SetPixelShader);
 
-    GUEST_FUNCTION_HOOK(sub_82AE2BF8, ScreenShaderInit);
+GUEST_FUNCTION_HOOK(sub_82C003B8, D3DXFillTexture);
+GUEST_FUNCTION_HOOK(sub_82C00910, D3DXFillVolumeTexture);
 
-    // This is a buggy function that recreates framebuffers
-    // if the inverse capture ratio is not 2.0, but the parameter
-    // is completely unused and not stored, so it ends up
-    // recreating framebuffers every single frame instead.
-    GUEST_FUNCTION_STUB(sub_82BAAD38);
+GUEST_FUNCTION_HOOK(sub_82E43FC8, MakePictureData);
 
-    GUEST_FUNCTION_STUB(sub_822C15D8);
-    GUEST_FUNCTION_STUB(sub_822C1810);
-    GUEST_FUNCTION_STUB(sub_82BD97A8);
-    GUEST_FUNCTION_STUB(sub_82BD97E8);
-    GUEST_FUNCTION_STUB(sub_82BDD370); // SetGammaRamp
-    GUEST_FUNCTION_STUB(sub_82BE05B8);
-    GUEST_FUNCTION_STUB(sub_82BE9C98);
-    GUEST_FUNCTION_STUB(sub_82BEA308);
-    GUEST_FUNCTION_STUB(sub_82CD5D68);
-    GUEST_FUNCTION_STUB(sub_82BE9B28);
-    GUEST_FUNCTION_STUB(sub_82BEA018);
-    GUEST_FUNCTION_STUB(sub_82BEA7C0);
-    GUEST_FUNCTION_STUB(sub_82BFFF88); // D3DXFilterTexture
-    GUEST_FUNCTION_STUB(sub_82BD96D0);
-    */
+GUEST_FUNCTION_HOOK(sub_82E9EE38, SetResolution);
+
+GUEST_FUNCTION_HOOK(sub_82AE2BF8, ScreenShaderInit);
+
+// This is a buggy function that recreates framebuffers
+// if the inverse capture ratio is not 2.0, but the parameter
+// is completely unused and not stored, so it ends up
+// recreating framebuffers every single frame instead.
+GUEST_FUNCTION_STUB(sub_82BAAD38);
+
+GUEST_FUNCTION_STUB(sub_822C15D8);
+GUEST_FUNCTION_STUB(sub_822C1810);
+GUEST_FUNCTION_STUB(sub_82BD97A8);
+GUEST_FUNCTION_STUB(sub_82BD97E8);
+GUEST_FUNCTION_STUB(sub_82BDD370); // SetGammaRamp
+GUEST_FUNCTION_STUB(sub_82BE05B8);
+GUEST_FUNCTION_STUB(sub_82BE9C98);
+GUEST_FUNCTION_STUB(sub_82BEA308);
+GUEST_FUNCTION_STUB(sub_82CD5D68);
+GUEST_FUNCTION_STUB(sub_82BE9B28);
+GUEST_FUNCTION_STUB(sub_82BEA018);
+GUEST_FUNCTION_STUB(sub_82BEA7C0);
+GUEST_FUNCTION_STUB(sub_82BFFF88); // D3DXFilterTexture
+GUEST_FUNCTION_STUB(sub_82BD96D0);
+*/

@@ -69,15 +69,12 @@ uint32_t GuestThreadHandle::Wait(uint32_t timeout)
 
 uint32_t GuestThread::Start(const GuestThreadParams& params)
 {
-    LOGF_WARNING("THREAD");
     const auto procMask = (uint8_t)(params.flags >> 24);
     const auto cpuNumber = procMask == 0 ? 0 : 7 - std::countl_zero(procMask);
 
     GuestThreadContext ctx(cpuNumber);
     ctx.ppcContext.r3.u64 = params.value;
-    LOGF_WARNING("FIND FUNC {}", params.function);
     g_memory.FindFunction(params.function)(ctx.ppcContext, g_memory.base);
-    LOGF_WARNING("AFTER FUNC");
     return ctx.ppcContext.r3.u32;
 }
 
@@ -169,8 +166,8 @@ uint32_t SetThreadIdealProcessorImpl(GuestThreadHandle* hThread, uint32_t dwIdea
     return 0;
 }
 
-GUEST_FUNCTION_HOOK(sub_82DFA2E8, SetThreadNameImpl);
-GUEST_FUNCTION_HOOK(sub_82BD57A8, GetThreadPriorityImpl);
-GUEST_FUNCTION_HOOK(sub_82BD5910, SetThreadIdealProcessorImpl);
+//GUEST_FUNCTION_HOOK(sub_82DFA2E8, SetThreadNameImpl);
+//GUEST_FUNCTION_HOOK(sub_82BD57A8, GetThreadPriorityImpl);
+//GUEST_FUNCTION_HOOK(sub_82BD5910, SetThreadIdealProcessorImpl);
 
-GUEST_FUNCTION_STUB(sub_82BD58F8); // Some function that updates the TEB, don't really care since the field is not set
+//GUEST_FUNCTION_STUB(sub_82BD58F8); // Some function that updates the TEB, don't really care since the field is not set
