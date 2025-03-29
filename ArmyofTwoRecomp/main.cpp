@@ -22,6 +22,7 @@
 #include <os/version.h>
 
 #include "locale/locale.h"
+#include <xex_patcher.h>
 
 Memory g_memory;
 Heap g_userHeap;
@@ -83,6 +84,14 @@ void HostStartup()
 // Name inspired from nt's entry point
 void KiSystemStartup()
 {
+    if (g_memory.base == nullptr)
+    {
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, GameWindow::GetTitle(), Localise("System_MemoryAllocationFailed").c_str(), GameWindow::s_pWindow);
+        std::_Exit(1);
+    }
+
+    g_userHeap.Init();
+
     LOGF_WARNING("Making files");
 
     const auto gameContent = XamMakeContent(XCONTENTTYPE_RESERVED, "Game");
@@ -183,7 +192,7 @@ uint32_t LdrLoadModule(const std::filesystem::path& path)
 
     auto res = reinterpret_cast<const Xex2ResourceInfo*>(getOptHeaderPtr(loadResult.data(), XEX_HEADER_RESOURCE_INFO));
 
-//    g_xdbfWrapper = XDBFWrapper((uint8_t*)g_memory.Translate(res->offset.get()), res->sizeOfData);
+    g_xdbfWrapper = XDBFWrapper((uint8_t*)g_memory.Translate(res->offset.get()), res->sizeOfData);
 
     return entry;
 }
@@ -218,8 +227,6 @@ void HostStartup()
     CoInitializeEx(nullptr, COINIT_MULTITHREADED);
 #endif
 
-    g_userHeap.Init();
-
     hid::Init();
 }
 
@@ -245,23 +252,22 @@ int main(int argc, char* argv[])
     modulePath = (GAME_INSTALL_DIRECTORY "/game/default.xex");
     LOG_WARNING(modulePath.string());
 
-    const char* sdlVideoDriver = nullptr;
+    KiSystemStartup();
+    LOGF_WARNING("Loading module");
+    uint32_t entry = LdrLoadModule(modulePath);
+    LOGF_WARNING("Loaded module {}", entry);
 
+    const char* sdlVideoDriver = nullptr;
     if (!Video::CreateHostDevice(sdlVideoDriver))
     {
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, GameWindow::GetTitle(), "Video_BackendError", GameWindow::s_pWindow);
         std::_Exit(1);
     }
 
-    KiSystemStartup();
-    LOGF_WARNING("Loading module");
-    uint32_t entry = LdrLoadModule(modulePath);
-    LOGF_WARNING("Loaded module {}", entry);
     Video::StartPipelinePrecompilation();
     LOGF_WARNING("Pipeline");
  //   SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, GameWindow::GetTitle(), Localise("Video_BackendError").c_str(), GameWindow::s_pWindow);
  //   std::_Exit(1);
-
     GuestThread::Start({ entry, 0, 0 });
     LOGF_WARNING("Thread started");
 

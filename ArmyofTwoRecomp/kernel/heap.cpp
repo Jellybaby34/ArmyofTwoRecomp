@@ -64,6 +64,28 @@ uint32_t RtlAllocateHeap(uint32_t heapHandle, uint32_t flags, uint32_t size)
         memset(ptr, 0, size);
 
     assert(ptr);
+    LOGF_WARNING("heapHandle: {:X}, size: {:X}, flags: {:X}. ptr: {:X}, g_memory.MapVirtual(ptr): {:X}", heapHandle, size, flags, (uint32_t)ptr, g_memory.MapVirtual(ptr));
+
+    return g_memory.MapVirtual(ptr);
+}
+
+uint32_t RtlAllocateOS(uint32_t heapHandle, uint32_t size, uint32_t flags)
+{
+/*
+    void* ptr = g_userHeap.Alloc(size);
+    if ((flags & 0x8) != 0)
+        memset(ptr, 0, size);
+*/
+    void* ptr = (flags & 0x80000000) != 0 ?
+        g_userHeap.AllocPhysical(size, (1ull << ((flags >> 24) & 0xF))) :
+        g_userHeap.Alloc(size);
+
+    if ((flags & 0x40000000) != 0)
+        memset(ptr, 0, size);
+
+    assert(ptr);
+    LOGF_WARNING("heapHandle: {:X}, size: {:X}, flags: {:X}. ptr: {:X}, g_memory.MapVirtual(ptr): {:X}", heapHandle, size, flags, (uint32_t)ptr, g_memory.MapVirtual(ptr));
+
     return g_memory.MapVirtual(ptr);
 }
 
@@ -119,15 +141,25 @@ void XFreeMem(uint32_t baseAddress, uint32_t flags)
         g_userHeap.Free(g_memory.Translate(baseAddress));
 }
 
+
+GUEST_FUNCTION_STUB(sub_82B0CB08); // HeapCreate
+
+GUEST_FUNCTION_HOOK(sub_82B07BC8, RtlAllocateOS); // FMALLOC::ALLOCATEOS
+
+GUEST_FUNCTION_HOOK(sub_82B0D0B8, RtlAllocateHeap);
+GUEST_FUNCTION_HOOK(sub_82B0D9A0, RtlFreeHeap);
+GUEST_FUNCTION_HOOK(sub_82B0DC88, RtlReAllocateHeap);
+GUEST_FUNCTION_HOOK(sub_82B0C350, RtlSizeHeap);
+
+GUEST_FUNCTION_HOOK(sub_82B07C18, XAllocMem);
+
 /*
-GUEST_FUNCTION_STUB(sub_82BD7788); // HeapCreate
 GUEST_FUNCTION_STUB(sub_82BD9250); // HeapDestroy
 
-GUEST_FUNCTION_HOOK(sub_82BD7D30, RtlAllocateHeap);
-GUEST_FUNCTION_HOOK(sub_82BD8600, RtlFreeHeap);
-GUEST_FUNCTION_HOOK(sub_82BD88F0, RtlReAllocateHeap);
-GUEST_FUNCTION_HOOK(sub_82BD6FD0, RtlSizeHeap);
 
-GUEST_FUNCTION_HOOK(sub_831CC9C8, XAllocMem);
+
+
+
+
 GUEST_FUNCTION_HOOK(sub_831CCA60, XFreeMem);
 */

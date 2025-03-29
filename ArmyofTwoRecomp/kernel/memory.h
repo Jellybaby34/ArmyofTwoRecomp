@@ -5,6 +5,24 @@
 #define MEM_RESERVE 0x00002000  
 #endif
 
+/*
+// MEM_*, used by NtAllocateVirtualMemory
+enum XMEM : uint32_t {
+    XMEM_COMMIT = 0x00001000,
+    XMEM_RESERVE = 0x00002000,
+    XMEM_DECOMMIT = 0x00004000,
+    XMEM_RELEASE = 0x00008000,
+    XMEM_FREE = 0x00010000,
+    XMEM_PRIVATE = 0x00020000,
+    XMEM_RESET = 0x00080000,
+    XMEM_TOP_DOWN = 0x00100000,
+    XMEM_NOZERO = 0x00800000,
+    XMEM_LARGE_PAGES = 0x20000000,
+    XMEM_HEAP = 0x40000000,
+    XMEM_16MB_PAGES = 0x80000000  // from Valve SDK
+};
+*/
+
 struct Memory
 {
     uint8_t* base{};

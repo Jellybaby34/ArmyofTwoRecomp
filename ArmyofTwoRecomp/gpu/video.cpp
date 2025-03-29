@@ -1544,9 +1544,8 @@ static void CreateImGuiBackend()
 
 static void CheckSwapChain()
 {
-    LOGF_WARNING("!!! setVsyncEnabled STUB !!!");
 
-    g_swapChain->setVsyncEnabled(false);
+    g_swapChain->setVsyncEnabled(Config::VSync);
     g_swapChainValid &= !g_swapChain->needsResize();
 
     if (!g_swapChainValid)
@@ -1564,8 +1563,8 @@ static void CheckSwapChain()
         //       g_swapChainAcquireProfiler.End();
     }
 
-    //    if (g_needsResize)
-    //        Video::ComputeViewportDimensions();
+        if (g_needsResize)
+            Video::ComputeViewportDimensions();
 
     g_backBuffer->width = Video::s_viewportWidth;
     g_backBuffer->height = Video::s_viewportHeight;
@@ -1585,9 +1584,8 @@ static void BeginCommandList()
         uint32_t width = Video::s_viewportWidth;
         uint32_t height = Video::s_viewportHeight;
 
-        LOGF_WARNING("!!! XboxColorCorrection and Brightness STUB !!!");
         bool usingIntermediaryTexture = (width != g_swapChain->getWidth()) || (height != g_swapChain->getHeight()) ||
-            false || (abs(0.5f - 0.5f) > 0.001f);
+            Config::XboxColorCorrection || (abs(Config::Brightness - 0.5f) > 0.001f);
 
         if (usingIntermediaryTexture)
         {
@@ -1808,10 +1806,8 @@ bool Video::CreateHostDevice(const char* sdlVideoDriver)
         break;
     }
 
-    LOGF_WARNING("!!! MaxFrameLatency STUBBED !!!");
-    g_swapChain = g_queue->createSwapChain(GameWindow::s_renderWindow, bufferCount, BACKBUFFER_FORMAT, 2);
-    LOGF_WARNING("!!! setVsyncEnabled STUBBED !!!");
-    g_swapChain->setVsyncEnabled(false);
+    g_swapChain = g_queue->createSwapChain(GameWindow::s_renderWindow, bufferCount, BACKBUFFER_FORMAT, Config::MaxFrameLatency);
+    g_swapChain->setVsyncEnabled(Config::VSync);
     g_swapChainValid = !g_swapChain->needsResize();
 
     for (auto& acquireSemaphore : g_acquireSemaphores)
@@ -1990,8 +1986,7 @@ bool Video::CreateHostDevice(const char* sdlVideoDriver)
     g_backBuffer->format = BACKBUFFER_FORMAT;
     g_backBuffer->textureHolder = g_device->createTexture(RenderTextureDesc::Texture2D(1, 1, 1, BACKBUFFER_FORMAT, RenderTextureFlag::RENDER_TARGET));
 
-    LOGF_WARNING("!!! ComputeViewportDimensions STUB !!!");
-    //    Video::ComputeViewportDimensions();
+    Video::ComputeViewportDimensions();
     CheckSwapChain();
     BeginCommandList();
 
@@ -2063,8 +2058,8 @@ static uint32_t CreateDevice(uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4,
         device->setRenderStateFunctions[state / 4] = functionOffset;
     }
 
-    for (size_t i = 0; i < std::size(device->setSamplerStateFunctions); i++)
-        device->setSamplerStateFunctions[i] = *reinterpret_cast<uint32_t*>(g_memory.Translate(0x8330F3DC + i * 0xC));
+//    for (size_t i = 0; i < std::size(device->setSamplerStateFunctions); i++)
+//        device->setSamplerStateFunctions[i] = *reinterpret_cast<uint32_t*>(g_memory.Translate(0x8330F3DC + i * 0xC)); // AINSLEY NEED TO CHECK HARDCODED VALUE
 
     device->viewport.width = 1280.0f;
     device->viewport.height = 720.0f;
@@ -7680,15 +7675,31 @@ PPC_FUNC(sub_82E3B1C0)
 */
 
 // UPDATED
-//GUEST_FUNCTION_HOOK(sub_82a42ca0, CreateDevice);
+GUEST_FUNCTION_HOOK(sub_82B0FA20, CreateDevice);
+GUEST_FUNCTION_HOOK(sub_82B22A18, Clear);
 
+GUEST_FUNCTION_HOOK(sub_82B0ED48, DestructResource);
+GUEST_FUNCTION_HOOK(sub_82B13738, LockTextureRect);
+GUEST_FUNCTION_HOOK(sub_82B125D0, UnlockTextureRect);
+
+
+GUEST_FUNCTION_HOOK(sub_82B21128, SetViewport);
+
+GUEST_FUNCTION_HOOK(sub_82B14348, GetSurfaceDesc);
+
+GUEST_FUNCTION_HOOK(sub_82B14220, CreateSurface);
+
+
+GUEST_FUNCTION_HOOK(sub_82B16440, SetPixelShader);
+
+//GUEST_FUNCTION_HOOK(sub_82B45168, D3DXFillTexture); // AINSLEY NEEDS CHECKING
 //GUEST_FUNCTION_HOOK(sub_82257950, Video::Present); // AINSLEY NEEDS CHECKING
 /*
 // TO DO
-GUEST_FUNCTION_HOOK(sub_82BE6230, DestructResource);
 
-GUEST_FUNCTION_HOOK(sub_82BE9300, LockTextureRect);
-GUEST_FUNCTION_HOOK(sub_82BE7780, UnlockTextureRect);
+
+
+
 
 GUEST_FUNCTION_HOOK(sub_82BE6B98, LockVertexBuffer);
 GUEST_FUNCTION_HOOK(sub_82BE6BE8, UnlockVertexBuffer);
@@ -7698,7 +7709,7 @@ GUEST_FUNCTION_HOOK(sub_82BE6CA8, LockIndexBuffer);
 GUEST_FUNCTION_HOOK(sub_82BE6CF0, UnlockIndexBuffer);
 GUEST_FUNCTION_HOOK(sub_82BE6200, GetIndexBufferDesc);
 
-GUEST_FUNCTION_HOOK(sub_82BE96F0, GetSurfaceDesc);
+
 
 GUEST_FUNCTION_HOOK(sub_82BE04B0, GetVertexDeclaration);
 GUEST_FUNCTION_HOOK(sub_82BE0530, HashVertexDeclaration);
@@ -7709,16 +7720,14 @@ GUEST_FUNCTION_HOOK(sub_82BDD330, GetBackBuffer);
 GUEST_FUNCTION_HOOK(sub_82BE9498, CreateTexture);
 GUEST_FUNCTION_HOOK(sub_82BE6AD0, CreateVertexBuffer);
 GUEST_FUNCTION_HOOK(sub_82BE6BF8, CreateIndexBuffer);
-GUEST_FUNCTION_HOOK(sub_82BE95B8, CreateSurface);
 
 GUEST_FUNCTION_HOOK(sub_82BF6400, StretchRect);
 
 GUEST_FUNCTION_HOOK(sub_82BDD9F0, SetRenderTarget);
 GUEST_FUNCTION_HOOK(sub_82BDDD38, SetDepthStencilSurface);
 
-GUEST_FUNCTION_HOOK(sub_82BFE4C8, Clear);
 
-GUEST_FUNCTION_HOOK(sub_82BDD8C0, SetViewport);
+
 
 GUEST_FUNCTION_HOOK(sub_82BE9818, SetTexture);
 GUEST_FUNCTION_HOOK(sub_82BDCFB0, SetScissorRect);
@@ -7737,9 +7746,9 @@ GUEST_FUNCTION_HOOK(sub_82BDD0F8, SetStreamSource);
 GUEST_FUNCTION_HOOK(sub_82BDD218, SetIndices);
 
 GUEST_FUNCTION_HOOK(sub_82BE1990, CreatePixelShader);
-GUEST_FUNCTION_HOOK(sub_82BDFE58, SetPixelShader);
 
-GUEST_FUNCTION_HOOK(sub_82C003B8, D3DXFillTexture);
+
+
 GUEST_FUNCTION_HOOK(sub_82C00910, D3DXFillVolumeTexture);
 
 GUEST_FUNCTION_HOOK(sub_82E43FC8, MakePictureData);

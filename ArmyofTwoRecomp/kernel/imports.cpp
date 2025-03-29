@@ -223,13 +223,11 @@ void XGetVideoMode()
 
 uint32_t XGetGameRegion()
 {
-    LOG_WARNING("!!! STUB !!!");
-/*
     if (Config::Language == ELanguage::Japanese)
         return 0x0101;
 
     return 0x03FF;
-*/
+
 }
 
 uint32_t XMsgStartIORequest(uint32_t App, uint32_t Message, XXOVERLAPPED* lpOverlapped, void* Buffer, uint32_t szBuffer)
@@ -325,9 +323,7 @@ void XamShowMessageBoxUIEx()
 
 uint32_t XGetLanguage()
 {
-    LOG_WARNING("!!! STUB !!!");
-    return 0;
-//    return (uint32_t)Config::Language.Value;
+    return (uint32_t)Config::Language.Value;
 }
 
 uint32_t XGetAVPack()
@@ -623,9 +619,79 @@ void NtDuplicateObject()
     LOG_UTILITY("!!! STUB !!!");
 }
 
-void NtAllocateVirtualMemory()
+
+
+void NtAllocateVirtualMemory(uint32_t* baseAddrPtr, uint32_t* regionSizePtr, uint32_t allocType, uint32_t protectBits, uint32_t debugMemory)
 {
     LOG_UTILITY("!!! STUB !!!");
+    LOGF_UTILITY("{:X}, {:X}, {:X}, {:X}, {:X}", (uint32_t)baseAddrPtr, (uint32_t)regionSizePtr, allocType, protectBits, debugMemory);
+/*
+    // NTSTATUS
+    // _Inout_  PVOID *BaseAddress,
+    // _Inout_  PSIZE_T RegionSize,
+    // _In_     ULONG AllocationType,
+    // _In_     ULONG Protect
+    // _In_     BOOLEAN DebugMemory
+
+    uint32_t pageSize;
+    if (*baseAddrPtr != 0)
+    {
+#if XE_ARCH_AMD64 == 1
+            return 4096;
+#else
+            static size_t value = 0;
+            if (!value) {
+                SYSTEM_INFO si;
+                GetSystemInfo(&si);
+                value = si.dwPageSize;
+            }
+            pageSize = value;
+#endif
+    }
+    else
+    {
+        pageSize = 4 * 1024;
+        if (allocType & XMEM_LARGE_PAGES)
+        {
+            pageSize = 64 * 1024;
+        }
+    }
+    LOGF_UTILITY("pagesize: 0x{:X}", pageSize);
+
+    uint32_t adjustedBase = *baseAddrPtr - (*baseAddrPtr % pageSize);
+    uint32_t adjustedSize = int32_t(*regionSizePtr) < 0 ? -int32_t(ByteSwap(*regionSizePtr)) : ByteSwap(*regionSizePtr);
+
+    uint32_t multiplier = adjustedBase ? pageSize : 64 * 1024;
+    if (!adjustedSize) 
+        adjustedSize = multiplier;
+    else
+        adjustedSize = (adjustedSize + multiplier - 1) / multiplier * multiplier;
+
+    uint32_t allocationType = 0;
+    if (allocType & XMEM_RESERVE) {
+        allocationType |= 1;
+    }
+    if (allocType & XMEM_COMMIT) {
+        allocationType |= 2;
+    }
+    if (allocType & XMEM_RESET) {
+        LOG_ERROR("X_MEM_RESET not implemented");
+        assert("ERROR");
+    }
+
+//    uint32_t address = XAllocMem(adjustedSize, allocType);
+
+//    LOGF_UTILITY("{:X}, {:X}, {:X}, {:X}, {:X}", baseAddrPtr, regionSizePtr, allocType, protectBits, debugMemory);
+    
+
+    LOGF_UTILITY("address: 0x{:X}, regionSizePtr: 0x{:X}", address, ByteSwap(*regionSizePtr));
+    LOGF_UTILITY("base: 0x{:X}, translate0x{:X}", (uint32_t)g_memory.base, (uint32_t)g_memory.Translate(0x20000));
+
+    *baseAddrPtr = address;
+    *regionSizePtr = adjustedSize;
+
+    return 1;
+*/
 }
 
 void NtFreeVirtualMemory()
@@ -701,7 +767,7 @@ void RtlEnterCriticalSection(XRTL_CRITICAL_SECTION* cs)
     assert(thisThread != NULL);
 
     std::atomic_ref owningThread(cs->OwningThread);
-
+ 
     while (true) 
     {
         uint32_t previousOwner = 0;
