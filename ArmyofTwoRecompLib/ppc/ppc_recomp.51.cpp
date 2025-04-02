@@ -1,6 +1,6 @@
 #include "ppc_recomp_shared.h"
 
-__attribute__((alias("__imp__sub_825492D8"))) PPC_WEAK_FUNC(sub_825492D8);
+__attribute__((alias("__imp__sub_825492D8"))) PPC_WEAK_FUNC(sub_825492D8); // AllocateOS
 PPC_FUNC_IMPL(__imp__sub_825492D8) {
 	PPC_FUNC_PROLOGUE();
 	PPCRegister temp{};
@@ -560,7 +560,7 @@ loc_82549668:
 	return;
 }
 
-__attribute__((alias("__imp__sub_82549698"))) PPC_WEAK_FUNC(sub_82549698);
+__attribute__((alias("__imp__sub_82549698"))) PPC_WEAK_FUNC(sub_82549698); //CreateIndirect
 PPC_FUNC_IMPL(__imp__sub_82549698) {
 	PPC_FUNC_PROLOGUE();
 	uint32_t ea{};
@@ -736,7 +736,7 @@ loc_825497B8:
 	return;
 }
 
-__attribute__((alias("__imp__sub_825497C8"))) PPC_WEAK_FUNC(sub_825497C8);
+__attribute__((alias("__imp__sub_825497C8"))) PPC_WEAK_FUNC(sub_825497C8); // GetPoolTable
 PPC_FUNC_IMPL(__imp__sub_825497C8) {
 	PPC_FUNC_PROLOGUE();
 	// lis r11,0
@@ -793,7 +793,7 @@ loc_82549814:
 	return;
 }
 
-__attribute__((alias("__imp__sub_82549830"))) PPC_WEAK_FUNC(sub_82549830);
+__attribute__((alias("__imp__sub_82549830"))) PPC_WEAK_FUNC(sub_82549830); // Realloc
 PPC_FUNC_IMPL(__imp__sub_82549830) {
 	PPC_FUNC_PROLOGUE();
 	uint32_t ea{};
@@ -817,11 +817,11 @@ PPC_FUNC_IMPL(__imp__sub_82549830) {
 	// mr r25,r7
 	ctx.r25.u64 = ctx.r7.u64;
 	// cmplwi cr6,r29,0
-	ctx.cr6.compare<uint32_t>(ctx.r29.u32, 0, ctx.xer);
+	ctx.cr6.compare<uint32_t>(ctx.r29.u32, 0, ctx.xer); // Is pointer 0,
 	// beq cr6,0x82549a3c
 	if (ctx.cr6.eq) goto loc_82549A3C;
 	// cmplwi cr6,r30,0
-	ctx.cr6.compare<uint32_t>(ctx.r30.u32, 0, ctx.xer);
+	ctx.cr6.compare<uint32_t>(ctx.r30.u32, 0, ctx.xer); // Is size 0,
 	// beq cr6,0x82549a64
 	if (ctx.cr6.eq) goto loc_82549A64;
 	// lis r11,-31973
@@ -914,7 +914,7 @@ loc_825498F0:
 	// rlwinm r11,r11,2,0,29
 	ctx.r11.u64 = __builtin_rotateleft64(ctx.r11.u32 | (ctx.r11.u64 << 32), 2) & 0xFFFFFFFC;
 	// lwzx r11,r11,r31
-	ctx.r11.u64 = PPC_LOAD_U32(ctx.r11.u32 + ctx.r31.u32);
+	ctx.r11.u64 = PPC_LOAD_U32((ctx.r11.u32) + ctx.r31.u32);
 	// add r28,r11,r10
 	ctx.r28.u64 = ctx.r11.u64 + ctx.r10.u64;
 	// lwz r27,12(r28)
@@ -1643,7 +1643,7 @@ loc_82549E00:
 	return;
 }
 
-__attribute__((alias("__imp__sub_82549E08"))) PPC_WEAK_FUNC(sub_82549E08);
+__attribute__((alias("__imp__sub_82549E08"))) PPC_WEAK_FUNC(sub_82549E08); // Malloc
 PPC_FUNC_IMPL(__imp__sub_82549E08) {
 	PPC_FUNC_PROLOGUE();
 	uint32_t ea{};
@@ -1829,9 +1829,9 @@ loc_82549F24:
 	// stw r24,20(r11)
 	PPC_STORE_U32(ctx.r11.u32 + 20, ctx.r24.u32);
 	// stw r25,4(r30)
-	PPC_STORE_U32(ctx.r30.u32 + 4, ctx.r25.u32);
+	PPC_STORE_U32(ctx.r30.u32 + 4, ctx.r25.u32); // Free[1] = Blocks;
 	// stw r10,0(r30)
-	PPC_STORE_U32(ctx.r30.u32 + 0, ctx.r10.u32);
+	PPC_STORE_U32(ctx.r30.u32 + 0, ctx.r10.u32); // *Free = 0;
 loc_82549F64:
 	// lwz r9,8(r11)
 	ctx.r9.u64 = PPC_LOAD_U32(ctx.r11.u32 + 8);

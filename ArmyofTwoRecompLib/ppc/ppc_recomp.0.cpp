@@ -15853,7 +15853,7 @@ PPC_FUNC_IMPL(__imp__sub_822166E4) {
 	return;
 }
 
-__attribute__((alias("__imp__sub_822166F0"))) PPC_WEAK_FUNC(sub_822166F0);
+__attribute__((alias("__imp__sub_822166F0"))) PPC_WEAK_FUNC(sub_822166F0); // Missing jump table 1
 PPC_FUNC_IMPL(__imp__sub_822166F0) {
 	PPC_FUNC_PROLOGUE();
 	uint32_t ea{};

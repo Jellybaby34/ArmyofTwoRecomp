@@ -8,15 +8,16 @@ constexpr size_t RESERVED_END = 0xA0000000;
 
 void Heap::Init()
 {
-    heap = o1heapInit(g_memory.Translate(0x20000), RESERVED_BEGIN - 0x20000);
+    heap1 = o1heapInit(g_memory.Translate(0x20000), 0x40000000 - 0x20000);
+    heap2 = o1heapInit(g_memory.Translate(0x4000000-0x260), 0x40000000 - (0x40000000 - 0x3FEA0000));
     physicalHeap = o1heapInit(g_memory.Translate(RESERVED_END), 0x100000000 - RESERVED_END);
 }
 
 void* Heap::Alloc(size_t size)
 {
-    std::lock_guard lock(mutex);
+    std::lock_guard lock(mutex1);
 
-    return o1heapAllocate(heap, std::max<size_t>(1, size));
+    return o1heapAllocate(heap1, std::max<size_t>(1, size));
 }
 
 void* Heap::AllocPhysical(size_t size, size_t alignment)
@@ -44,8 +45,8 @@ void Heap::Free(void* ptr)
     }
     else
     {
-        std::lock_guard lock(mutex);
-        o1heapFree(heap, ptr);
+        std::lock_guard lock(mutex1);
+        o1heapFree(heap1, ptr);
     }
 }
 
@@ -76,9 +77,18 @@ uint32_t RtlAllocateOS(uint32_t heapHandle, uint32_t size, uint32_t flags)
     if ((flags & 0x8) != 0)
         memset(ptr, 0, size);
 */
-    void* ptr = (flags & 0x80000000) != 0 ?
-        g_userHeap.AllocPhysical(size, (1ull << ((flags >> 24) & 0xF))) :
-        g_userHeap.Alloc(size);
+    void* ptr;
+    if ((flags & 0x80000000) != 0)
+    {
+        LOG_WARNING("PHYSICAL");
+        ptr = g_userHeap.AllocPhysical(size, (1ull << ((flags >> 24) & 0xF)));
+    }
+    else
+    {
+        LOG_WARNING("VIRTUAL");
+        ptr = g_userHeap.Alloc(size);
+    }
+
 
     if ((flags & 0x40000000) != 0)
         memset(ptr, 0, size);
@@ -122,8 +132,64 @@ uint32_t RtlSizeHeap(uint32_t heapHandle, uint32_t flags, uint32_t memoryPointer
     return 0;
 }
 
+
+void* Heap::Alloc2(size_t size)
+{
+    std::lock_guard lock(mutex2);
+
+    if (size < 0x10000)
+        size = 0x10000;
+
+    return o1heapAllocate(heap2, std::max<size_t>(1, size));
+}
+
+uint32_t XAllocMemVirtual(uint32_t Ptr, uint32_t size, uint32_t memFlags, uint32_t pageFlags)
+{
+    LOGF_WARNING("Ptr: {:X}, size: {:X}, memFlags: {:X}. pageFlags: {:X}", Ptr, size, memFlags, pageFlags);
+
+    void* ptr = g_userHeap.Alloc2(size);
+
+    if ((memFlags & 0x40000000) != 0)
+        memset(ptr, 0, size);
+
+    assert(ptr);
+    LOGF_WARNING("ptr: {:X}, g_memory.MapVirtual(ptr): {:X}", (uint32_t)ptr, (uint32_t)g_memory.MapVirtual(ptr));
+
+    return g_memory.MapVirtual(ptr);
+
+/*
+    void* ptr = (flags & 0x80000000) != 0 ?
+        g_userHeap.AllocPhysical(size, (1ull << ((flags >> 24) & 0xF))) :
+        g_userHeap.Alloc(size);
+
+    if ((flags & 0x40000000) != 0)
+        memset(ptr, 0, size);
+
+    assert(ptr);
+    return g_memory.MapVirtual(ptr);
+*/
+}
+
+uint32_t XAllocMemPhysical(uint32_t size, uint32_t maxPtrLong, uint32_t alignment, uint32_t flags)
+{
+    LOGF_WARNING("size: {:X}, maxPtrLong: {:X}, alignment: {:X}. flags: {:X}", size, maxPtrLong, alignment, flags);
+
+    void* ptr = g_userHeap.AllocPhysical(size, (1ull << ((flags >> 24) & 0xF)));
+
+    if ((flags & 0x40000000) != 0)
+        memset(ptr, 0, size);
+
+    assert(ptr);
+
+    LOGF_WARNING("ptr: {:X}, g_memory.MapVirtual(ptr): {:X}", (uint32_t)ptr, (uint32_t)g_memory.MapVirtual(ptr));
+    return g_memory.MapVirtual(ptr);
+
+}
+
+
 uint32_t XAllocMem(uint32_t size, uint32_t flags)
 {
+
     void* ptr = (flags & 0x80000000) != 0 ?
         g_userHeap.AllocPhysical(size, (1ull << ((flags >> 24) & 0xF))) :
         g_userHeap.Alloc(size);
@@ -144,14 +210,16 @@ void XFreeMem(uint32_t baseAddress, uint32_t flags)
 
 GUEST_FUNCTION_STUB(sub_82B0CB08); // HeapCreate
 
-GUEST_FUNCTION_HOOK(sub_82B07BC8, RtlAllocateOS); // FMALLOC::ALLOCATEOS
+//GUEST_FUNCTION_HOOK(sub_82B07BC8, RtlAllocateOS); // FMALLOC::ALLOCATEOS
 
 GUEST_FUNCTION_HOOK(sub_82B0D0B8, RtlAllocateHeap);
 GUEST_FUNCTION_HOOK(sub_82B0D9A0, RtlFreeHeap);
 GUEST_FUNCTION_HOOK(sub_82B0DC88, RtlReAllocateHeap);
 GUEST_FUNCTION_HOOK(sub_82B0C350, RtlSizeHeap);
 
-GUEST_FUNCTION_HOOK(sub_82B07C18, XAllocMem);
+GUEST_FUNCTION_HOOK(sub_82B07D38, XAllocMem);
+GUEST_FUNCTION_HOOK(sub_82B07BC8, XAllocMemVirtual);
+GUEST_FUNCTION_HOOK(sub_82B07C18, XAllocMemPhysical);
 
 /*
 GUEST_FUNCTION_STUB(sub_82BD9250); // HeapDestroy

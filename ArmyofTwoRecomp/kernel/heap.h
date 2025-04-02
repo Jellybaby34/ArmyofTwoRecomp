@@ -4,8 +4,11 @@
 
 struct Heap
 {
-    Mutex mutex;
-    O1HeapInstance* heap;
+    Mutex mutex1;
+    O1HeapInstance* heap1;
+
+    Mutex mutex2;
+    O1HeapInstance* heap2;
 
     Mutex physicalMutex;
     O1HeapInstance* physicalHeap;
@@ -13,6 +16,7 @@ struct Heap
     void Init();
 
     void* Alloc(size_t size);
+    void* Alloc2(size_t size);
     void* AllocPhysical(size_t size, size_t alignment);
     void Free(void* ptr);
 
@@ -34,5 +38,7 @@ struct Heap
         return obj;
     }
 };
+
+extern uint32_t XAllocMem(uint32_t size, uint32_t flags);
 
 extern Heap g_userHeap;

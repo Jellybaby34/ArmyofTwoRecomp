@@ -2027,7 +2027,6 @@ void Video::WaitForGPU()
 static uint32_t CreateDevice(uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5, be<uint32_t>* a6)
 {
     LOG_WARNING("!!! STUB !!!");
-    std::exit(0);
 
     g_xdbfTextureCache = std::unordered_map<uint16_t, GuestTexture*>();
 
@@ -2987,6 +2986,7 @@ static RenderFormat ConvertFormat(uint32_t format)
     case D3DFMT_A8B8G8R8:
     case D3DFMT_A8R8G8B8:
     case D3DFMT_X8R8G8B8:
+    case D3DFMT_X8R8G8B8_2:
         return RenderFormat::R8G8B8A8_UNORM;
     case D3DFMT_D24FS8:
     case D3DFMT_D24S8:
@@ -7679,9 +7679,17 @@ GUEST_FUNCTION_HOOK(sub_82B0FA20, CreateDevice);
 GUEST_FUNCTION_HOOK(sub_82B22A18, Clear);
 
 GUEST_FUNCTION_HOOK(sub_82B0ED48, DestructResource);
-GUEST_FUNCTION_HOOK(sub_82B13738, LockTextureRect);
+
+GUEST_FUNCTION_HOOK(sub_82B13F60, LockTextureRect);
 GUEST_FUNCTION_HOOK(sub_82B125D0, UnlockTextureRect);
 
+GUEST_FUNCTION_HOOK(sub_82B0F3C0, LockVertexBuffer);
+GUEST_FUNCTION_HOOK(sub_82B0F410, UnlockVertexBuffer);
+
+GUEST_FUNCTION_HOOK(sub_82B0ED18, GetVertexBufferDesc);
+
+GUEST_FUNCTION_HOOK(sub_82B0F420, LockIndexBuffer);
+GUEST_FUNCTION_HOOK(sub_82B0F468, UnlockIndexBuffer);
 
 GUEST_FUNCTION_HOOK(sub_82B21128, SetViewport);
 
@@ -7690,64 +7698,46 @@ GUEST_FUNCTION_HOOK(sub_82B14348, GetSurfaceDesc);
 GUEST_FUNCTION_HOOK(sub_82B14220, CreateSurface);
 
 
+GUEST_FUNCTION_HOOK(sub_82B21260, SetRenderTarget);
+GUEST_FUNCTION_HOOK(sub_82B215C8, SetDepthStencilSurface);
+
+GUEST_FUNCTION_HOOK(sub_82B14100, CreateTexture);
+GUEST_FUNCTION_HOOK(sub_82B14468, SetTexture);
+GUEST_FUNCTION_HOOK(sub_82B208A0, SetScissorRect);
+
+GUEST_FUNCTION_HOOK(sub_82B1BEA8, DrawPrimitive);
+GUEST_FUNCTION_HOOK(sub_82B1C290, DrawIndexedPrimitive);
+GUEST_FUNCTION_HOOK(sub_82B1B880, DrawPrimitiveUP);
+
+GUEST_FUNCTION_HOOK(sub_82B169D0, CreateVertexDeclaration);
+GUEST_FUNCTION_HOOK(sub_82B168C8, SetVertexDeclaration);
+
+GUEST_FUNCTION_HOOK(sub_82B17EB8, CreateVertexShader);
+GUEST_FUNCTION_HOOK(sub_82B166F8, SetVertexShader);
+
+GUEST_FUNCTION_HOOK(sub_82B209F0, SetStreamSource);
+GUEST_FUNCTION_HOOK(sub_82B20B10, SetIndices);
+
+GUEST_FUNCTION_HOOK(sub_82B18008, CreatePixelShader);
 GUEST_FUNCTION_HOOK(sub_82B16440, SetPixelShader);
+
+
+
 
 //GUEST_FUNCTION_HOOK(sub_82B45168, D3DXFillTexture); // AINSLEY NEEDS CHECKING
 //GUEST_FUNCTION_HOOK(sub_82257950, Video::Present); // AINSLEY NEEDS CHECKING
 /*
 // TO DO
 
-
-
-
-
-GUEST_FUNCTION_HOOK(sub_82BE6B98, LockVertexBuffer);
-GUEST_FUNCTION_HOOK(sub_82BE6BE8, UnlockVertexBuffer);
-GUEST_FUNCTION_HOOK(sub_82BE61D0, GetVertexBufferDesc);
-
-GUEST_FUNCTION_HOOK(sub_82BE6CA8, LockIndexBuffer);
-GUEST_FUNCTION_HOOK(sub_82BE6CF0, UnlockIndexBuffer);
-GUEST_FUNCTION_HOOK(sub_82BE6200, GetIndexBufferDesc);
-
-
-
+GUEST_FUNCTION_HOOK(sub_82BE6200, GetIndexBufferDesc); // DOES THIS EXIST IN AO2????
 GUEST_FUNCTION_HOOK(sub_82BE04B0, GetVertexDeclaration);
 GUEST_FUNCTION_HOOK(sub_82BE0530, HashVertexDeclaration);
-
-GUEST_FUNCTION_HOOK(sub_82BDA8C0, Video::Present);
-GUEST_FUNCTION_HOOK(sub_82BDD330, GetBackBuffer);
-
-GUEST_FUNCTION_HOOK(sub_82BE9498, CreateTexture);
+GUEST_FUNCTION_HOOK(sub_82BF6400, StretchRect);
 GUEST_FUNCTION_HOOK(sub_82BE6AD0, CreateVertexBuffer);
 GUEST_FUNCTION_HOOK(sub_82BE6BF8, CreateIndexBuffer);
 
-GUEST_FUNCTION_HOOK(sub_82BF6400, StretchRect);
-
-GUEST_FUNCTION_HOOK(sub_82BDD9F0, SetRenderTarget);
-GUEST_FUNCTION_HOOK(sub_82BDDD38, SetDepthStencilSurface);
-
-
-
-
-GUEST_FUNCTION_HOOK(sub_82BE9818, SetTexture);
-GUEST_FUNCTION_HOOK(sub_82BDCFB0, SetScissorRect);
-
-GUEST_FUNCTION_HOOK(sub_82BE5900, DrawPrimitive);
-GUEST_FUNCTION_HOOK(sub_82BE5CF0, DrawIndexedPrimitive);
-GUEST_FUNCTION_HOOK(sub_82BE52F8, DrawPrimitiveUP);
-
-GUEST_FUNCTION_HOOK(sub_82BE0428, CreateVertexDeclaration);
-GUEST_FUNCTION_HOOK(sub_82BE02E0, SetVertexDeclaration);
-
-GUEST_FUNCTION_HOOK(sub_82BE1A80, CreateVertexShader);
-GUEST_FUNCTION_HOOK(sub_82BE0110, SetVertexShader);
-
-GUEST_FUNCTION_HOOK(sub_82BDD0F8, SetStreamSource);
-GUEST_FUNCTION_HOOK(sub_82BDD218, SetIndices);
-
-GUEST_FUNCTION_HOOK(sub_82BE1990, CreatePixelShader);
-
-
+GUEST_FUNCTION_HOOK(sub_82BDA8C0, Video::Present);
+GUEST_FUNCTION_HOOK(sub_82BDD330, GetBackBuffer);
 
 GUEST_FUNCTION_HOOK(sub_82C00910, D3DXFillVolumeTexture);
 
@@ -7756,6 +7746,35 @@ GUEST_FUNCTION_HOOK(sub_82E43FC8, MakePictureData);
 GUEST_FUNCTION_HOOK(sub_82E9EE38, SetResolution);
 
 GUEST_FUNCTION_HOOK(sub_82AE2BF8, ScreenShaderInit);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // This is a buggy function that recreates framebuffers
 // if the inverse capture ratio is not 2.0, but the parameter

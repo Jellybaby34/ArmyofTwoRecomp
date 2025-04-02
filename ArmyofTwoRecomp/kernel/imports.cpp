@@ -624,8 +624,10 @@ void NtDuplicateObject()
 void NtAllocateVirtualMemory(uint32_t* baseAddrPtr, uint32_t* regionSizePtr, uint32_t allocType, uint32_t protectBits, uint32_t debugMemory)
 {
     LOG_UTILITY("!!! STUB !!!");
-    LOGF_UTILITY("{:X}, {:X}, {:X}, {:X}, {:X}", (uint32_t)baseAddrPtr, (uint32_t)regionSizePtr, allocType, protectBits, debugMemory);
+    LOGF_UTILITY("{:X}, {:X}, {:X}, {:X}, {:X}", ByteSwap((uint32_t)*baseAddrPtr), ByteSwap((uint32_t)*regionSizePtr), allocType, protectBits, debugMemory);
 /*
+    uint32_t baseAddrBS = ByteSwap((uint32_t)*baseAddrPtr);
+    uint32_t regionSizeBS = ByteSwap((uint32_t)*regionSizePtr);
     // NTSTATUS
     // _Inout_  PVOID *BaseAddress,
     // _Inout_  PSIZE_T RegionSize,
@@ -679,18 +681,19 @@ void NtAllocateVirtualMemory(uint32_t* baseAddrPtr, uint32_t* regionSizePtr, uin
         assert("ERROR");
     }
 
-//    uint32_t address = XAllocMem(adjustedSize, allocType);
+    LOGF_UTILITY("adjustedSize: 0x{:X}, allocType: 0x{:X}", adjustedSize, allocType);
+
+    uint32_t address = XAllocMem(adjustedSize, allocType);
 
 //    LOGF_UTILITY("{:X}, {:X}, {:X}, {:X}, {:X}", baseAddrPtr, regionSizePtr, allocType, protectBits, debugMemory);
     
 
     LOGF_UTILITY("address: 0x{:X}, regionSizePtr: 0x{:X}", address, ByteSwap(*regionSizePtr));
-    LOGF_UTILITY("base: 0x{:X}, translate0x{:X}", (uint32_t)g_memory.base, (uint32_t)g_memory.Translate(0x20000));
 
-    *baseAddrPtr = address;
-    *regionSizePtr = adjustedSize;
+    *baseAddrPtr = (uint32_t)address;
+    *regionSizePtr = ByteSwap(adjustedSize);
 
-    return 1;
+    return 0;
 */
 }
 
