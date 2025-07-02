@@ -8,22 +8,34 @@ constexpr size_t RESERVED_END = 0xA0000000;
 
 void Heap::Init()
 {
-    heap1 = o1heapInit(g_memory.Translate(0x20000), 0x40000000 - 0x20000);
-    heap2 = o1heapInit(g_memory.Translate(0x4000000-0x260), 0x40000000 - (0x40000000 - 0x3FEA0000));
+    heap = o1heapInit(g_memory.Translate(0x20000), RESERVED_BEGIN - 0x20000);
+//    heap2 = o1heapInit(g_memory.Translate(0x4000000), 0x40000000 - 1);
+
     physicalHeap = o1heapInit(g_memory.Translate(RESERVED_END), 0x100000000 - RESERVED_END);
 }
 
 void* Heap::Alloc(size_t size)
 {
-    std::lock_guard lock(mutex1);
+    size = std::max<size_t>(1, size);
+    size_t alignment = 0x10000;
 
-    return o1heapAllocate(heap1, std::max<size_t>(1, size));
+    std::lock_guard lock(mutex);
+
+    void* ptr = o1heapAllocate(heap, size + alignment);
+    size_t aligned = ((size_t)ptr + alignment) & ~(alignment - 1);
+
+    *((void**)aligned - 1) = ptr;
+    *((size_t*)aligned - 2) = size + O1HEAP_ALIGNMENT;
+
+    return (void*)aligned;
+
+//    return o1heapAllocate(heap1, std::max<size_t>(1, size));
 }
 
 void* Heap::AllocPhysical(size_t size, size_t alignment)
 {
     size = std::max<size_t>(1, size);
-    alignment = alignment == 0 ? 0x1000 : std::max<size_t>(16, alignment);
+    alignment = alignment == 0 ? 0x10000 : std::max<size_t>(0x10000, alignment);
 
     std::lock_guard lock(physicalMutex);
 
@@ -45,8 +57,8 @@ void Heap::Free(void* ptr)
     }
     else
     {
-        std::lock_guard lock(mutex1);
-        o1heapFree(heap1, ptr);
+        std::lock_guard lock(mutex);
+        o1heapFree(heap, *((void**)ptr - 1));
     }
 }
 
@@ -132,22 +144,23 @@ uint32_t RtlSizeHeap(uint32_t heapHandle, uint32_t flags, uint32_t memoryPointer
     return 0;
 }
 
-
+/*
 void* Heap::Alloc2(size_t size)
 {
     std::lock_guard lock(mutex2);
 
-    if (size < 0x10000)
-        size = 0x10000;
+//    if (size < 0x10000)
+//        size = 0x10000;
 
-    return o1heapAllocate(heap2, std::max<size_t>(1, size));
+    return o1heapAllocate(heap1, std::max<size_t>(1, size));
 }
+*/
 
 uint32_t XAllocMemVirtual(uint32_t Ptr, uint32_t size, uint32_t memFlags, uint32_t pageFlags)
 {
     LOGF_WARNING("Ptr: {:X}, size: {:X}, memFlags: {:X}. pageFlags: {:X}", Ptr, size, memFlags, pageFlags);
 
-    void* ptr = g_userHeap.Alloc2(size);
+    void* ptr = g_userHeap.Alloc(size);
 
     if ((memFlags & 0x40000000) != 0)
         memset(ptr, 0, size);
@@ -173,6 +186,9 @@ uint32_t XAllocMemVirtual(uint32_t Ptr, uint32_t size, uint32_t memFlags, uint32
 uint32_t XAllocMemPhysical(uint32_t size, uint32_t maxPtrLong, uint32_t alignment, uint32_t flags)
 {
     LOGF_WARNING("size: {:X}, maxPtrLong: {:X}, alignment: {:X}. flags: {:X}", size, maxPtrLong, alignment, flags);
+
+//    if (size < 0x10000)
+//        size = 0x10000;
 
     void* ptr = g_userHeap.AllocPhysical(size, (1ull << ((flags >> 24) & 0xF)));
 

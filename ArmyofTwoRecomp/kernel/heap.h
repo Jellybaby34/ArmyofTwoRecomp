@@ -4,11 +4,11 @@
 
 struct Heap
 {
-    Mutex mutex1;
-    O1HeapInstance* heap1;
+    Mutex mutex;
+    O1HeapInstance* heap;
 
-    Mutex mutex2;
-    O1HeapInstance* heap2;
+//    Mutex mutex2;
+//    O1HeapInstance* heap2;
 
     Mutex physicalMutex;
     O1HeapInstance* physicalHeap;
